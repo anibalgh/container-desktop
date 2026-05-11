@@ -129,7 +129,7 @@ impl Default for ContainerConfig {
 }
 
 /// A line of container log output.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogLine {
     /// The output stream: stdout or stderr.
     pub stream: LogStream,
@@ -140,7 +140,7 @@ pub struct LogLine {
 }
 
 /// Log output stream type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LogStream {
     /// Standard output.
     Stdout,
@@ -156,7 +156,7 @@ pub struct ExecOutput {
 }
 
 /// Resource usage statistics for a container.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContainerStats {
     /// CPU usage percentage.
     pub cpu_percent: f64,
@@ -179,7 +179,7 @@ pub struct ContainerStats {
 }
 
 /// General Docker daemon information (returned on connection).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DockerInfo {
     /// Docker daemon version.
     pub server_version: String,

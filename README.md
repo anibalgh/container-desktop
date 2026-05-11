@@ -1,16 +1,14 @@
 # Container Desktop
 
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
-[![Iced](https://img.shields.io/badge/iced-0.14-blue.svg)](https://iced.rs)
+[![Tauri](https://img.shields.io/badge/tauri-2.x-blue.svg)](https://tauri.app)
+[![React](https://img.shields.io/badge/react-19.x-61dafb.svg)](https://react.dev)
+[![Tailwind](https://img.shields.io/badge/tailwind-4.x-38bdf8.svg)](https://tailwindcss.com)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-A cross-platform desktop application for managing Docker containers, images, volumes, networks, and compose stacks — built entirely in Rust with a modern native GUI.
+A cross-platform desktop application for managing Docker containers, images, volumes, networks, and compose stacks — built with **Tauri v2** + **React / TypeScript / Tailwind CSS**.
 
 > Inspired by Docker Desktop, Podman Desktop, and Rancher Desktop.
-
-<p align="center">
-  <img src="assets/screenshot.png" alt="Container Desktop Screenshot" width="800">
-</p>
 
 ---
 
@@ -20,24 +18,22 @@ A cross-platform desktop application for managing Docker containers, images, vol
 
 | Resource | Actions |
 |---|---|
-| **Containers** | List, create, start, stop, restart, remove, view logs, interactive terminal |
-| **Images** | List, pull, remove, tag, inspect |
+| **Containers** | List, start, stop, restart, remove, view logs, interactive terminal |
+| **Images** | List, pull (with live progress), remove, tag, inspect |
 | **Volumes** | List, create, remove, inspect |
-| **Networks** | List, create, remove, inspect |
-| **Docker Compose** | Up, down, view logs for compose stacks |
+| **Networks** | List, create (bridge/overlay/host), remove, inspect |
+| **Docker Compose** | Up, down, streaming log viewer |
 
 ### User Interface
 
-- Modern native GUI built with [Iced](https://iced.rs) (Elm-like architecture)
-- **23 built-in themes**: Catppuccin, Tokyo Night, Gruvbox, Dracula, Nord, Solarized, and more
-- Automatic light/dark mode detection (follows OS preference)
-- Manual theme override persisted to user config
-- SVG iconography with light/dark color variants
-- Responsive sidebar navigation with 7 screens
-- Sortable, selectable data tables
-- Modal dialogs for image pull, container creation, and confirmations
-- Streaming log viewer with ANSI color support
-- Interactive terminal (PTY-based) for container exec sessions
+- Modern web-based UI rendered in a native WebView
+- Dark/light theme with CSS custom properties
+- Auto mode follows OS `prefers-color-scheme`
+- 22 manual theme variants persisted to user config
+- Sidebar navigation with connection status indicator
+- Responsive data tables for all Docker resources
+- Modal dialogs for pull, create, and confirmation actions
+- Live streaming output for image pulls, container logs, and compose
 
 ### Cross-Platform
 
@@ -50,114 +46,99 @@ A cross-platform desktop application for managing Docker containers, images, vol
 - Local Docker daemon (auto-detect)
 - Remote Docker over TCP
 - TLS-secured connections (certificate-based)
-- Auto-connect on startup with fallback
+- Auto-connect on startup with event-based status
 
 ---
 
 ## Architecture
 
-The project follows **Clean Architecture** principles with strictly enforced dependency direction at compile time:
-
 ```
-┌──────────────────────────────────────────────┐
-│                 main.rs                       │
-│           (entry point, wiring)               │
-├──────────────────────────────────────────────┤
-│  ui crate          →  infrastructure  →  domain │
-│  (iced GUI)            (bollard+config)  (entities+traits) │
-│  Depends on both       Implements traits   No deps       │
-└──────────────────────────────────────────────┘
+frontend/          ← React + TypeScript + Tailwind (SPA in WebView)
+src-tauri/         ← Rust backend: Tauri commands → domain → infrastructure
+crates/domain/     ← Entities, repository traits, domain errors
+crates/infrastructure/ ← Docker API (bollard), config persistence
 ```
 
-### Crate Dependency Graph
+Dependency direction: `domain ← infrastructure ← src-tauri`
 
-```
-domain        — Entities, repository traits, error types
-  ↑
-infrastructure — Docker API (bollard), config persistence
-  ↑
-ui             — Iced GUI, theme system, widgets, screens
-  ↑
-main.rs        — Application entry point
-```
-
-| Crate | Purpose | Key Dependencies |
-|---|---|---|
-| `domain` | Core business logic, entities, repository traits | `serde`, `thiserror`, `async-trait` |
-| `infrastructure` | Docker API client, config management | `bollard`, `directories`, `tokio` |
-| `ui` | Desktop GUI, theme engine, widgets, screens | `iced`, `dark-light`, `portable-pty` |
+| Layer | Tech | Purpose |
+|-------|------|---------|
+| Frontend | React 19, Tailwind CSS 4 | Desktop UI rendered in WebView |
+| IPC Bridge | Tauri v2 commands | Type-safe Rust ↔ JS communication |
+| Domain | Pure Rust | Entities, traits, no framework deps |
+| Infrastructure | Bollard 0.21, directories | Docker API, config persistence |
 
 ---
 
 ## Prerequisites
 
-- **Rust** 1.88 or later ([rustup.rs](https://rustup.rs))
-- **Docker Engine** running locally (or a remote Docker daemon)
+- **Node.js** 20+ and **npm**
+- **Rust** 1.88+ ([rustup.rs](https://rustup.rs))
+- **Docker Engine** running locally (or a remote daemon)
 - **docker-compose** binary (optional, for Compose features)
-- On Linux: `libxkbcommon-dev`, `libgtk-3-dev` (Iced dependencies)
 
-### Install System Dependencies
+### System Dependencies (Linux)
 
-**Ubuntu / Debian:**
 ```bash
-sudo apt install build-essential pkg-config libxkbcommon-dev libgtk-3-dev
+sudo apt install -y \
+  libwebkit2gtk-4.1-dev \
+  libsoup-3.0-dev \
+  libjavascriptcoregtk-4.1-dev \
+  libgtk-3-dev \
+  libayatana-appindicator3-dev
 ```
 
-**Fedora:**
-```bash
-sudo dnf install gcc pkg-config libxkbcommon-devel gtk3-devel
-```
-
-**macOS:**
-```bash
-xcode-select --install
-```
-
-**Windows:**
-- Install [Rust](https://rustup.rs) via `rustup-init.exe`
-- No additional system dependencies required
+**macOS / Windows**: No additional system dependencies required.
 
 ---
 
 ## Quick Start
 
-### 1. Clone the repository
+### 1. Install frontend dependencies
 
 ```bash
-git clone https://github.com/your-username/container-desktop.git
-cd container-desktop
+cd frontend
+npm install
 ```
 
-### 2. Build
+### 2. Run in development mode
 
 ```bash
-cargo build --release
+cd ..           # back to project root
+cargo tauri dev
 ```
 
-### 3. Run
+This starts the Vite dev server (hot-reload) and opens the Tauri window.
+
+### 3. Build for production
 
 ```bash
-cargo run --release
+cargo tauri build
 ```
 
-On first launch, the application will:
-1. Create the config directory at `~/.config/container-desktop/`
-2. Auto-detect and connect to the local Docker daemon
-3. Apply your OS theme preference (auto light/dark mode)
-4. Open the Dashboard screen
+The output bundle will be in `src-tauri/target/release/bundle/`.
 
-### Development Mode
+---
+
+## Development
+
+### Backend (Rust)
 
 ```bash
-cargo run
+cargo check                        # Check entire workspace
+cargo check -p domain              # Check domain crate only
+cargo check -p container-desktop-app  # Check Tauri app only
+cargo clippy                       # Lint
+cargo fmt                          # Format
 ```
 
-For faster iteration, check compilation without building:
+### Frontend (TypeScript)
 
 ```bash
-cargo check                # Check entire workspace
-cargo check -p domain      # Check domain crate only
-cargo check -p ui          # Check UI crate only
+cd frontend
+npm run dev        # Dev server with HMR (port 5173)
+npm run build      # Production build
+npx tsc --noEmit   # Type check only
 ```
 
 ---
@@ -166,29 +147,22 @@ cargo check -p ui          # Check UI crate only
 
 ### Screens
 
-| # | Screen | Description |
-|---|---|---|
-| 0 | **Dashboard** | Connection status, Docker daemon info summary |
-| 1 | **Containers** | List all containers, start/stop/restart/remove, view logs, open terminal |
-| 2 | **Images** | List images, pull from registry, remove, tag |
-| 3 | **Volumes** | List volumes, create, remove |
-| 4 | **Networks** | List networks, create with driver selection, remove |
-| 5 | **Docker Compose** | Specify compose file path, up/down, view streaming logs |
-| 6 | **Settings** | Theme picker (23 themes), endpoint configuration, connection test |
-
-### Keyboard Shortcuts
-
-| Shortcut | Action |
+| Screen | Description |
 |---|---|
-| `Ctrl+1` to `Ctrl+7` | Switch to screens 0-6 |
-| `F5` | Refresh current screen data |
+| **Dashboard** | Connection status, Docker daemon info (version, OS, container/image counts) |
+| **Containers** | List all containers with state badges, start/stop/restart/remove, confirmation dialogs |
+| **Images** | List images, pull from registry with live progress, remove |
+| **Volumes** | List volumes, create, remove |
+| **Networks** | List networks, create (with driver selection: bridge/overlay/host/none), remove |
+| **Docker Compose** | Compose file path input, up/down buttons, live output stream |
+| **Settings** | Theme mode (Auto/Manual + 22 variants), Docker endpoint URL, font family/size |
 
 ### Theme Selection
 
-1. Navigate to **Settings** (sidebar)
-2. Choose **Auto** to follow your OS light/dark preference
-3. Choose **Manual** and select from 23 built-in themes
-4. Click **Save Settings**
+1. Navigate to **Settings**
+2. Toggle **Auto** (follows OS) or **Manual**
+3. If Manual, pick a theme from the dropdown (Dark, Dracula, Nord, Catppuccin, Tokyo Night, etc.)
+4. Click **Save**
 
 Available themes: Light, Dark, Dracula, Nord, Solarized Light/Dark, Gruvbox Light/Dark, Catppuccin (Latte/Frappe/Macchiato/Mocha), Tokyo Night (Standard/Storm/Light), Kanagawa (Wave/Dragon/Lotus), Moonfly, Nightfly, Oxocarbon, Ferra.
 
@@ -200,7 +174,7 @@ Settings are persisted to:
 
 | Platform | Path |
 |---|---|
-| Linux | `~/.config/container-desktop/settings.json` |
+| Linux | `~/.config/container-desktop/ContainerDesktop/settings.json` |
 | macOS | `~/Library/Application Support/com.container-desktop.ContainerDesktop/settings.json` |
 | Windows | `C:\Users\<User>\AppData\Roaming\container-desktop\ContainerDesktop\config\settings.json` |
 
@@ -208,9 +182,7 @@ Settings are persisted to:
 
 ```json
 {
-  "theme_setting": {
-    "Manual": "TokyoNight"
-  },
+  "theme_setting": { "Manual": "TokyoNight" },
   "endpoint": {
     "host_url": "unix:///var/run/docker.sock",
     "tls_ca": null,
@@ -219,22 +191,11 @@ Settings are persisted to:
     "timeout_secs": 30
   },
   "window_width": 1280,
-  "window_height": 800
+  "window_height": 800,
+  "font_family": "Monospace",
+  "font_size": 14
 }
 ```
-
-### Remote Docker Connection
-
-To connect to a remote Docker daemon over TCP:
-
-1. Navigate to **Settings**
-2. Set the host URL: `tcp://192.168.1.10:2376`
-3. Optionally configure TLS certificates
-4. Click **Test Connection**
-5. Click **Save Settings**
-6. Restart the application
-
-> Warning: Unencrypted TCP connections to remote Docker daemons are insecure. Use TLS for production environments.
 
 ---
 
@@ -242,96 +203,66 @@ To connect to a remote Docker daemon over TCP:
 
 ```
 container-desktop/
-├── Cargo.toml                  # Workspace root
-├── src/
-│   └── main.rs                 # Application entry point
-├── crates/
-│   ├── domain/                 # Core domain layer
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── error.rs        # DomainError enum
-│   │       ├── entities/       # Data structures
-│   │       │   ├── container.rs, image.rs, volume.rs
-│   │       │   ├── network.rs, compose.rs
-│   │       │   ├── endpoint.rs, settings.rs
-│   │       │   └── mod.rs
-│   │       └── repository/     # Trait definitions
-│   │           ├── container.rs, image.rs, volume.rs
-│   │           ├── network.rs, compose.rs
-│   │           ├── connection.rs, settings.rs
-│   │           └── mod.rs
-│   ├── infrastructure/         # External implementations
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── config/
-│   │       │   └── mod.rs      # ConfigManager (settings persistence)
-│   │       └── docker/
-│   │           ├── mod.rs      # DockerClient, connection logic
-│   │           ├── connection.rs, compose.rs
-│   │           ├── containers.rs, images.rs
-│   │           ├── volumes.rs, networks.rs
-│   └── ui/                     # Iced GUI layer
-│       └── src/
-│           ├── lib.rs
-│           ├── app.rs          # Main app, message routing
-│           ├── theme.rs        # ThemeManager (23 themes + auto-detect)
-│           ├── widgets/
-│           │   ├── mod.rs
-│           │   ├── sidebar.rs  # Navigation sidebar
-│           │   ├── status_bar.rs
-│           │   ├── data_table.rs
-│           │   ├── modals.rs   # Dialog modals
-│           │   ├── log_viewer.rs
-│           │   ├── terminal.rs # PTY terminal widget
-│           │   └── icon.rs     # SVG icon system
-│           └── screens/
-│               ├── mod.rs
-│               ├── dashboard.rs, containers.rs
-│               ├── images.rs, volumes.rs
-│               ├── networks.rs, compose.rs
-│               └── settings.rs
-└── assets/
-    └── icons/
-        ├── light/              # Light-theme SVG icons
-        └── dark/               # Dark-theme SVG icons
+├── Cargo.toml                 # Virtual workspace
+├── frontend/                  # React + TypeScript + Tailwind
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── index.html
+│   └── src/
+│       ├── main.tsx           # React entry point
+│       ├── App.tsx            # Layout, navigation, theme
+│       ├── index.css          # Tailwind + CSS variables
+│       ├── lib/
+│       │   ├── tauri.ts       # Tauri IPC bridge (28 commands)
+│       │   └── types.ts       # TypeScript interfaces
+│       ├── components/
+│       │   ├── Sidebar.tsx    # Navigation sidebar
+│       │   └── StatusBar.tsx  # Bottom status bar
+│       └── screens/
+│           ├── Dashboard.tsx
+│           ├── Containers.tsx
+│           ├── Images.tsx
+│           ├── Volumes.tsx
+│           ├── Networks.tsx
+│           ├── Compose.tsx
+│           └── Settings.tsx
+├── src-tauri/                 # Tauri application
+│   ├── Cargo.toml
+│   ├── tauri.conf.json
+│   ├── capabilities/default.json
+│   └── src/
+│       ├── main.rs
+│       ├── lib.rs             # App state, setup, command registration
+│       └── commands/          # Tauri IPC handlers
+│           ├── connection.rs
+│           ├── containers.rs
+│           ├── images.rs
+│           ├── volumes.rs
+│           ├── networks.rs
+│           ├── compose.rs
+│           └── settings.rs
+└── crates/
+    ├── domain/src/            # Entities + repository traits
+    └── infrastructure/src/    # Docker API (bollard) + config persistence
 ```
 
 ---
 
 ## Technology Stack
 
-| Technology | Version | Purpose |
-|---|---|---|
-| [Rust](https://www.rust-lang.org) | 1.88 | Language |
-| [Iced](https://iced.rs) | 0.14 | Native GUI framework |
-| [Bollard](https://github.com/fussybeaver/bollard) | 0.21 | Docker Engine API client |
-| [Tokio](https://tokio.rs) | 1.x | Async runtime |
-| [Directories](https://github.com/soc/directories-rs) | 6.0 | Platform config paths |
-| [Serde](https://serde.rs) | 1.x | Serialization |
-| [Dark Light](https://github.com/frewsxcv/rust-dark-light) | 1.1 | OS theme detection |
-| [Portable PTY](https://github.com/wez/wezterm) | 0.8 | Pseudoterminal (PTY) |
+| Technology | Purpose |
+|---|---|
+| [Tauri v2](https://tauri.app) | Desktop framework (Rust backend + WebView frontend) |
+| [React 19](https://react.dev) | UI library |
+| [TypeScript](https://www.typescriptlang.org) | Type-safe frontend |
+| [Tailwind CSS 4](https://tailwindcss.com) | Utility-first CSS framework |
+| [Vite](https://vite.dev) | Frontend build tool |
+| [Bollard](https://github.com/fussybeaver/bollard) | Docker Engine API client |
+| [Tokio](https://tokio.rs) | Async runtime |
+| [Serde](https://serde.rs) | Serialization |
 
 ---
 
 ## License
 
 MIT — See [LICENSE](LICENSE) for details.
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Make your changes
-4. Ensure the project builds: `cargo check`
-5. Submit a pull request
-
-### Development Guidelines
-
-- All public methods must include documentation comments (`///`)
-- Follow Clean Architecture: domain has no external dependencies
-- Import repository traits when calling Docker API methods from the UI layer
-- Use `cargo check -p <crate>` for targeted compilation checks
-- Format code with `cargo fmt` before committing
-- Run `cargo clippy` for lint checks
