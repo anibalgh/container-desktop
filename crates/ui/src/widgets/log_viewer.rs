@@ -1,6 +1,8 @@
 use iced::widget::{column, container, scrollable, text};
 use iced::{Element, Length, Padding, Theme};
 
+use crate::typography::FontScale;
+
 /// A log entry with optional ANSI styling.
 #[derive(Debug, Clone)]
 pub struct LogEntry {
@@ -12,16 +14,18 @@ pub struct LogEntry {
 pub fn log_viewer<'a, Message: Clone + 'a>(
     entries: &'a [LogEntry],
     _follow: bool,
+    font_size: u16,
 ) -> Element<'a, Message, Theme, iced::Renderer> {
+    let fs = FontScale::new(font_size);
     let log_lines = entries
         .iter()
         .map(|entry| {
             let line_text = if entry.is_stderr {
                 text(&entry.line)
-                    .size(12)
+                    .size(fs.size(12))
                     .color(iced::Color::from_rgb(0.9, 0.3, 0.3))
             } else {
-                text(&entry.line).size(12)
+                text(&entry.line).size(fs.size(12))
             };
 
             container(line_text)

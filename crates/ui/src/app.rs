@@ -11,7 +11,7 @@ use crate::screens::{
 };
 use crate::theme::ThemeManager;
 use crate::widgets::{sidebar, status_bar};
-use domain::entities::{AppSettings, DockerInfo, ThemeSetting};
+use domain::entities::{AppSettings, DockerInfo};
 use domain::repository::{
     ComposeRepository, ContainerRepository, DockerConnectionRepository, ImageRepository,
     NetworkRepository, SettingsRepository, VolumeRepository,
@@ -44,7 +44,7 @@ pub enum Message {
     Networks(NetworksMsg),
     Compose(ComposeMsg),
     Settings(SettingsMsg),
-    ThemeChanged(ThemeSetting),
+    SettingsLoaded(AppSettings),
     Refresh,
     Noop,
 }
@@ -57,13 +57,13 @@ impl ContainerDesktop {
 
         let load_task = {
             let cm = config_manager.clone();
-            Task::perform(
-                async move { cm.load_settings().await.ok() },
-                |maybe| match maybe {
-                    Some(s) => Message::ThemeChanged(s.theme_setting),
-                    None => Message::Noop,
-                },
-            )
+            Task::perform(async move { cm.load_settings().await.ok() }, |maybe| {
+                if let Some(s) = maybe {
+                    Message::SettingsLoaded(s)
+                } else {
+                    Message::Noop
+                }
+            })
         };
 
         let connect_task = {
@@ -114,15 +114,19 @@ impl ContainerDesktop {
                 }
                 Task::none()
             }
-            Message::ThemeChanged(new_setting) => {
-                self.settings.theme_setting = new_setting.clone();
-                self.settings_screen.theme_setting = new_setting;
-                let settings = self.settings.clone();
-                let cm = self.config_manager.clone();
-                Task::perform(
-                    async move { cm.save_settings(&settings).await.map_err(|e| e.to_string()) },
-                    |_| Message::Noop,
-                )
+            Message::SettingsLoaded(settings) => {
+                self.settings.theme_setting = settings.theme_setting.clone();
+                self.settings_screen.theme_setting = settings.theme_setting;
+                self.settings_screen.font_family = settings.font_family;
+                self.settings_screen.font_size = settings.font_size;
+                // Propagate font_size to all screens
+                self.dashboard.font_size = settings.font_size;
+                self.images.font_size = settings.font_size;
+                self.containers.font_size = settings.font_size;
+                self.volumes.font_size = settings.font_size;
+                self.networks.font_size = settings.font_size;
+                self.compose.font_size = settings.font_size;
+                Task::none()
             }
             Message::Refresh => Task::none(),
             Message::Images(img_msg) => self.handle_images(img_msg),
@@ -648,12 +652,39 @@ impl ContainerDesktop {
                     |_| Message::Noop,
                 )
             }
+            SettingsMsg::FontFamilyChanged(_) | SettingsMsg::FontSizeChanged(_) => {
+                let _ = self.settings_screen.update(msg);
+                self.settings.font_family = self.settings_screen.font_family.clone();
+                self.settings.font_size = self.settings_screen.font_size;
+                // Propagate font_size to all screens
+                self.dashboard.font_size = self.settings.font_size;
+                self.images.font_size = self.settings.font_size;
+                self.containers.font_size = self.settings.font_size;
+                self.volumes.font_size = self.settings.font_size;
+                self.networks.font_size = self.settings.font_size;
+                self.compose.font_size = self.settings.font_size;
+                let settings = self.settings.clone();
+                let cm = self.config_manager.clone();
+                Task::perform(
+                    async move { cm.save_settings(&settings).await.map_err(|e| e.to_string()) },
+                    |_| Message::Noop,
+                )
+            }
             SettingsMsg::Save => {
                 let mut endpoint = self.settings.endpoint.clone();
                 endpoint.host_url = self.settings_screen.endpoint_url.clone();
                 self.settings.endpoint = endpoint;
                 self.settings_screen.saved = true;
                 self.settings.theme_setting = self.settings_screen.theme_setting.clone();
+                self.settings.font_family = self.settings_screen.font_family.clone();
+                self.settings.font_size = self.settings_screen.font_size;
+                // Propagate font_size to all screens
+                self.dashboard.font_size = self.settings.font_size;
+                self.images.font_size = self.settings.font_size;
+                self.containers.font_size = self.settings.font_size;
+                self.volumes.font_size = self.settings.font_size;
+                self.networks.font_size = self.settings.font_size;
+                self.compose.font_size = self.settings.font_size;
                 let settings = self.settings.clone();
                 let cm = self.config_manager.clone();
                 Task::perform(
@@ -688,6 +719,7 @@ impl ContainerDesktop {
             dark,
             Message::Navigate,
             self.docker_info.is_some(),
+            self.settings.font_size,
         );
 
         let screen_title = match self.active_screen {
@@ -701,7 +733,8 @@ impl ContainerDesktop {
             _ => "Dashboard",
         };
 
-        let status = status_bar::status_bar(&self.docker_info, screen_title);
+        let status =
+            status_bar::status_bar(&self.docker_info, screen_title, self.settings.font_size);
 
         column![
             row![

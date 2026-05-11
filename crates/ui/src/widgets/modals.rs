@@ -1,6 +1,8 @@
 use iced::widget::{button, column, container, row, text, text_input, Space};
 use iced::{Alignment, Element, Length, Padding, Theme};
 
+use crate::typography::FontScale;
+
 /// A modal overlay for dialogs.
 pub fn modal<'a, Message: Clone + 'a>(
     title: &'a str,
@@ -9,10 +11,12 @@ pub fn modal<'a, Message: Clone + 'a>(
     primary_msg: Message,
     secondary_label: Option<(&'a str, Message)>,
     cancel_msg: Option<Message>,
+    font_size: u16,
 ) -> Element<'a, Message, Theme, iced::Renderer> {
+    let fs = FontScale::new(font_size);
     let cancel_btn: Element<'a, Message, Theme, iced::Renderer> =
         if let Some(cancel) = cancel_msg.clone() {
-            button(text("✕").size(14))
+            button(text("✕").size(fs.size(14)))
                 .style(transparent_button)
                 .on_press(cancel)
                 .into()
@@ -22,7 +26,7 @@ pub fn modal<'a, Message: Clone + 'a>(
 
     let title_bar = container(
         row![
-            text(title).size(16),
+            text(title).size(fs.size(16)),
             Space::new().width(Length::Fill),
             cancel_btn,
         ]
@@ -62,16 +66,18 @@ pub fn pull_image_modal<'a>(
     image_name: &'a str,
     tag: &'a str,
     pull_progress: &'a [String],
+    font_size: u16,
 ) -> Element<'a, PullImageMessage, Theme, iced::Renderer> {
+    let fs = FontScale::new(font_size);
     let body = column![
-        text("Pull an image from a registry").size(12),
+        text("Pull an image from a registry").size(fs.size(12)),
         Space::new().height(8),
-        text("Image name:").size(11),
+        text("Image name:").size(fs.size(11)),
         text_input("e.g. nginx, alpine, ubuntu", image_name)
             .on_input(PullImageMessage::ImageNameChanged)
             .padding(8),
         Space::new().height(8),
-        text("Tag (optional):").size(11),
+        text("Tag (optional):").size(fs.size(11)),
         text_input("latest", tag)
             .on_input(PullImageMessage::TagChanged)
             .padding(8),
@@ -83,7 +89,7 @@ pub fn pull_image_modal<'a>(
                     column(
                         pull_progress
                             .iter()
-                            .map(|line| text(line).size(11).into())
+                            .map(|line| text(line).size(fs.size(11)).into())
                             .collect::<Vec<Element<'_, PullImageMessage, Theme, iced::Renderer>>>()
                     )
                     .spacing(2),
@@ -107,6 +113,7 @@ pub fn pull_image_modal<'a>(
         PullImageMessage::Pull,
         None,
         Some(PullImageMessage::Cancel),
+        font_size,
     )
 }
 
@@ -124,8 +131,10 @@ pub fn confirm_modal<'a, Message: Clone + 'a>(
     message: &'a str,
     confirm_msg: Message,
     cancel_msg: Message,
+    font_size: u16,
 ) -> Element<'a, Message, Theme, iced::Renderer> {
-    let body = container(text(message).size(13))
+    let fs = FontScale::new(font_size);
+    let body = container(text(message).size(fs.size(13)))
         .padding(Padding::new(8.0))
         .width(Length::Fill);
 
@@ -136,6 +145,7 @@ pub fn confirm_modal<'a, Message: Clone + 'a>(
         confirm_msg,
         None,
         Some(cancel_msg),
+        font_size,
     )
 }
 
@@ -162,29 +172,31 @@ pub enum CreateContainerMessage {
 
 pub fn create_container_modal<'a>(
     data: &CreateContainerData,
+    font_size: u16,
 ) -> Element<'a, CreateContainerMessage, Theme, iced::Renderer> {
+    let fs = FontScale::new(font_size);
     let body = column![
-        text("Image name:").size(11),
+        text("Image name:").size(fs.size(11)),
         text_input("e.g. nginx:latest", &data.image)
             .on_input(CreateContainerMessage::ImageChanged)
             .padding(8),
         Space::new().height(6),
-        text("Container name (optional):").size(11),
+        text("Container name (optional):").size(fs.size(11)),
         text_input("my-container", &data.name)
             .on_input(CreateContainerMessage::NameChanged)
             .padding(8),
         Space::new().height(6),
-        text("Ports (e.g. 8080:80):").size(11),
+        text("Ports (e.g. 8080:80):").size(fs.size(11)),
         text_input("", &data.ports)
             .on_input(CreateContainerMessage::PortsChanged)
             .padding(8),
         Space::new().height(6),
-        text("Volumes (e.g. /host:/container):").size(11),
+        text("Volumes (e.g. /host:/container):").size(fs.size(11)),
         text_input("", &data.volumes)
             .on_input(CreateContainerMessage::VolumesChanged)
             .padding(8),
         Space::new().height(6),
-        text("Environment (KEY=VALUE, one per line):").size(11),
+        text("Environment (KEY=VALUE, one per line):").size(fs.size(11)),
         text_input("", &data.env)
             .on_input(CreateContainerMessage::EnvChanged)
             .padding(8),
@@ -199,6 +211,7 @@ pub fn create_container_modal<'a>(
         CreateContainerMessage::Create,
         None,
         Some(CreateContainerMessage::Cancel),
+        font_size,
     )
 }
 

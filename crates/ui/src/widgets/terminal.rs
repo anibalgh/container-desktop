@@ -2,6 +2,8 @@ use iced::widget::{column, container, scrollable, text, text_input};
 use iced::{Element, Length, Padding, Theme};
 use std::sync::{Arc, Mutex as StdMutex};
 
+use crate::typography::FontScale;
+
 /// State for the interactive terminal widget.
 pub struct TerminalState {
     pub output: String,
@@ -31,8 +33,10 @@ pub enum TerminalMessage {
 /// Creates an interactive terminal widget.
 pub fn terminal<'a>(
     state: &'a TerminalState,
+    font_size: u16,
 ) -> Element<'a, TerminalMessage, Theme, iced::Renderer> {
-    let output_text = text(&state.output).size(12).font(iced::Font::MONOSPACE);
+    let fs = FontScale::new(font_size);
+    let output_text = text(&state.output).size(fs.size(12)).font(iced::Font::MONOSPACE);
 
     let output_view = container(
         scrollable(
@@ -58,7 +62,7 @@ pub fn terminal<'a>(
         .on_input(TerminalMessage::InputChanged)
         .on_submit(TerminalMessage::SendInput)
         .padding(6)
-        .size(12)
+        .size(fs.size(12))
         .font(iced::Font::MONOSPACE);
 
     let input_row = container(input)
@@ -75,7 +79,7 @@ pub fn terminal<'a>(
     let terminal_content = column![
         output_view,
         container(
-            text("┤").size(10)
+            text("┤").size(fs.size(10))
         ).padding(Padding::new(2.0).left(8.0)),
         input_row,
     ]

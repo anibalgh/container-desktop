@@ -31,6 +31,30 @@ impl ConfigManager {
     pub fn config_path(&self) -> &PathBuf {
         &self.config_path
     }
+
+    /// Synchronously reads font family and font size from the settings file.
+    ///
+    /// Used at startup (before the async runtime is available) to configure
+    /// the application's default font via `iced::Settings`.
+    /// Returns defaults if the file is missing or unreadable.
+    pub fn load_font_settings_sync(&self) -> (String, u16) {
+        use domain::entities::AppSettings;
+
+        let defaults = AppSettings::default();
+        let (default_family, default_size) = (defaults.font_family, defaults.font_size);
+
+        let content = match std::fs::read_to_string(&self.config_path) {
+            Ok(c) => c,
+            Err(_) => return (default_family, default_size),
+        };
+
+        let settings: AppSettings = match serde_json::from_str(&content) {
+            Ok(s) => s,
+            Err(_) => return (default_family, default_size),
+        };
+
+        (settings.font_family, settings.font_size)
+    }
 }
 
 #[async_trait]

@@ -142,6 +142,21 @@ pub struct AppSettings {
     pub window_width: u32,
     /// Window height in pixels.
     pub window_height: u32,
+    /// Monospace font family name (e.g. "Fira Code", "JetBrains Mono").
+    /// Use "Monospace" for the system default monospace font.
+    #[serde(default = "default_font_family")]
+    pub font_family: String,
+    /// Base font size in pixels for the entire UI.
+    #[serde(default = "default_font_size")]
+    pub font_size: u16,
+}
+
+fn default_font_family() -> String {
+    "Monospace".to_string()
+}
+
+fn default_font_size() -> u16 {
+    14
 }
 
 impl Default for AppSettings {
@@ -151,6 +166,8 @@ impl Default for AppSettings {
             endpoint: DockerEndpoint::default(),
             window_width: 1280,
             window_height: 800,
+            font_family: default_font_family(),
+            font_size: default_font_size(),
         }
     }
 }

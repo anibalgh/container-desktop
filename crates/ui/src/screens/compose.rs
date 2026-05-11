@@ -1,10 +1,12 @@
 use iced::widget::{button, column, container, row, text, text_input, Space};
 use iced::{Alignment, Element, Length, Padding, Theme};
 
+use crate::typography::FontScale;
 use crate::widgets::data_table::{data_table, Column, DataTableConfig};
 use crate::widgets::log_viewer::{log_viewer, LogEntry};
 
 pub struct ComposeScreen {
+    pub font_size: u16,
     pub stacks: Vec<ComposeStackInfo>,
     pub selected_index: Option<usize>,
     pub compose_file: String,
@@ -24,6 +26,7 @@ pub struct ComposeStackInfo {
 impl Default for ComposeScreen {
     fn default() -> Self {
         Self {
+            font_size: 14,
             stacks: Vec::new(),
             selected_index: None,
             compose_file: String::new(),
@@ -92,17 +95,18 @@ impl ComposeScreen {
     }
 
     pub fn view<'a>(&'a self) -> Element<'a, ComposeMessage, Theme, iced::Renderer> {
+        let fs = FontScale::new(self.font_size);
         if self.showing_logs {
             return container(
                 column![
                     row![
-                        text("Compose Logs").size(20),
+                        text("Compose Logs").size(fs.size(20)),
                         Space::new().width(Length::Fill),
                         button(text("Close")).on_press(ComposeMessage::CloseLogs),
                     ]
                     .align_y(Alignment::Center),
                     Space::new().height(8),
-                    log_viewer(&self.log_entries, true),
+                    log_viewer(&self.log_entries, true, self.font_size),
                 ]
                 .spacing(4)
                 .padding(Padding::new(16.0)),
@@ -113,11 +117,11 @@ impl ComposeScreen {
         }
 
         let compose_bar = row![
-            text("Compose file:").size(12),
+            text("Compose file:").size(fs.size(12)),
             text_input("/path/to/docker-compose.yml", &self.compose_file)
                 .on_input(ComposeMessage::FilePathChanged)
                 .padding(6)
-                .size(12)
+                .size(fs.size(12))
                 .width(300),
             Space::new().width(8),
             button(text("Up")).on_press(ComposeMessage::ComposeUp),
@@ -164,11 +168,21 @@ impl ComposeScreen {
             })
             .collect();
 
-        let table = data_table(table_config, rows, None, |_| ComposeMessage::Noop);
+        let table = data_table(
+            table_config,
+            rows,
+            None,
+            |_| ComposeMessage::Noop,
+            None::<fn(usize) -> ComposeMessage>,
+            None::<fn(usize) -> ComposeMessage>,
+            None,
+            false,
+            self.font_size,
+        );
 
         container(
             column![
-                text("Docker Compose").size(20),
+                text("Docker Compose").size(fs.size(20)),
                 compose_bar,
                 Space::new().height(12),
                 table,

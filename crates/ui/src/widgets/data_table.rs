@@ -1,6 +1,8 @@
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Alignment, Background, Element, Length, Padding, Theme};
 
+use crate::typography::FontScale;
+
 pub struct Column {
     pub header: String,
     pub width: f32,
@@ -16,15 +18,76 @@ pub fn data_table<'a, Message: Clone + 'a>(
     rows: Vec<Vec<String>>,
     selected_index: Option<usize>,
     on_select: impl Fn(usize) -> Message + 'a,
+    on_sort: Option<impl Fn(usize) -> Message + 'a>,
+    on_resize: Option<impl Fn(usize) -> Message + 'a>,
+    sort_column: Option<usize>,
+    sort_ascending: bool,
+    font_size: u16,
 ) -> Element<'a, Message, Theme, iced::Renderer> {
+    let fs = FontScale::new(font_size);
+
+    // Build sortable header columns with optional sort arrows and resize handles
     let header_columns: Vec<Element<'_, Message, Theme, iced::Renderer>> = config
         .columns
         .iter()
-        .map(|col| {
-            container(text(col.header.clone()).size(11))
-                .width(col.width)
-                .padding(Padding::new(8.0))
-                .into()
+        .enumerate()
+        .flat_map(|(i, col)| {
+            let mut elements: Vec<Element<'_, Message, Theme, iced::Renderer>> = Vec::new();
+
+            // The header label, optionally clickable for sorting
+            let header_label = {
+                let sort_arrow = if sort_column == Some(i) {
+                    if sort_ascending {
+                        " ▲"
+                    } else {
+                        " ▼"
+                    }
+                } else {
+                    ""
+                };
+                text(format!("{}{}", col.header, sort_arrow)).size(fs.size(11))
+            };
+
+            let header_cell = if let Some(ref sort_fn) = on_sort {
+                let msg = sort_fn(i);
+                let btn_col = column![header_label]
+                    .width(col.width)
+                    .padding(Padding::new(8.0));
+                container(button(btn_col).on_press(msg).width(Length::Fill))
+                    .width(col.width)
+                    .into()
+            } else {
+                container(header_label)
+                    .width(col.width)
+                    .padding(Padding::new(8.0))
+                    .into()
+            };
+
+            elements.push(header_cell);
+
+            // Resize handle between columns
+            if let Some(ref resize_fn) = on_resize {
+                let handle = container(
+                    button(text("┊").size(fs.size(9)))
+                        .on_press(resize_fn(i))
+                        .width(8)
+                        .style(|theme: &Theme, status| {
+                            let palette = theme.extended_palette();
+                            let mut s = iced::widget::button::Style::default();
+                            if matches!(status, iced::widget::button::Status::Hovered) {
+                                s.background =
+                                    Some(iced::Background::Color(palette.primary.base.color));
+                            }
+                            s
+                        }),
+                )
+                .width(8)
+                .align_x(iced::alignment::Horizontal::Center)
+                .into();
+                elements.push(handle);
+            }
+
+            elements
         })
         .collect();
 
@@ -48,7 +111,7 @@ pub fn data_table<'a, Message: Clone + 'a>(
                 .into_iter()
                 .enumerate()
                 .map(|(j, cell)| {
-                    let size = if j == 0 { 12 } else { 11 };
+                    let size = if j == 0 { fs.size(12) } else { fs.size(11) };
                     container(text(cell).size(size))
                         .width(config.columns.get(j).map(|c| c.width).unwrap_or(100.0))
                         .padding(Padding::new(6.0).left(8.0))
@@ -79,12 +142,14 @@ pub fn data_table<'a, Message: Clone + 'a>(
 pub fn simple_table<'a, Message: Clone + 'a>(
     config: DataTableConfig,
     rows: Vec<Vec<String>>,
+    font_size: u16,
 ) -> Element<'a, Message, Theme, iced::Renderer> {
+    let fs = FontScale::new(font_size);
     let header_columns: Vec<Element<'_, Message, Theme, iced::Renderer>> = config
         .columns
         .iter()
         .map(|col| {
-            container(text(col.header.clone()).size(11))
+            container(text(col.header.clone()).size(fs.size(11)))
                 .width(col.width)
                 .padding(Padding::new(8.0))
                 .into()
@@ -109,7 +174,7 @@ pub fn simple_table<'a, Message: Clone + 'a>(
                 .into_iter()
                 .enumerate()
                 .map(|(j, cell)| {
-                    container(text(cell).size(11))
+                    container(text(cell).size(fs.size(11)))
                         .width(config.columns.get(j).map(|c| c.width).unwrap_or(100.0))
                         .padding(Padding::new(6.0).left(8.0))
                         .into()

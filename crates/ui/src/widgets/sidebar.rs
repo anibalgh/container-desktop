@@ -2,6 +2,8 @@ use super::icon::{icon, Icon};
 use iced::widget::{button, column, container, image, row, text};
 use iced::{Element, Length, Padding, Theme};
 
+use crate::typography::FontScale;
+
 /// Navigation item for the sidebar.
 pub struct NavItem {
     pub label: &'static str,
@@ -46,7 +48,9 @@ pub fn sidebar<'a, Message: Clone + 'a>(
     dark_mode: bool,
     on_select: impl Fn(usize) -> Message + 'a,
     docker_running: bool,
+    font_size: u16,
 ) -> Element<'a, Message, Theme, iced::Renderer> {
+    let fs = FontScale::new(font_size);
     let sidebar_icon_bytes: &[u8] = if dark_mode {
         include_bytes!("../../../../assets/icons/dark/icon16x16.png")
     } else {
@@ -57,8 +61,8 @@ pub fn sidebar<'a, Message: Clone + 'a>(
             image::Image::new(image::Handle::from_bytes(sidebar_icon_bytes.to_vec()))
                 .width(28)
                 .height(28),
-            text("Container").size(14),
-            text("Desktop").size(18),
+            text("Container").size(fs.size(14)),
+            text("Desktop").size(fs.size(18)),
         ]
         .align_y(iced::Alignment::Center)
         .spacing(6),
@@ -73,10 +77,13 @@ pub fn sidebar<'a, Message: Clone + 'a>(
             .map(|(i, item)| {
                 let is_active = i == active_index;
                 let btn = button(
-                    row![icon(item.icon, dark_mode, 18.0), text(item.label).size(13),]
-                        .spacing(8)
-                        .align_y(iced::Alignment::Center)
-                        .padding(Padding::new(8.0)),
+                    row![
+                        icon(item.icon, dark_mode, 18.0),
+                        text(item.label).size(fs.size(13)),
+                    ]
+                    .spacing(8)
+                    .align_y(iced::Alignment::Center)
+                    .padding(Padding::new(8.0)),
                 )
                 .width(Length::Fill);
 
@@ -94,9 +101,9 @@ pub fn sidebar<'a, Message: Clone + 'a>(
     .width(Length::Fill);
 
     let status_text = if docker_running {
-        text("Connected").size(11)
+        text("Connected").size(fs.size(11))
     } else {
-        text("Disconnected").size(11)
+        text("Disconnected").size(fs.size(11))
     };
 
     let status = container(status_text)

@@ -1,11 +1,13 @@
 use iced::widget::{button, column, container, row, text, Space};
 use iced::{Alignment, Element, Length, Padding, Theme};
 
+use crate::typography::FontScale;
 use crate::widgets::data_table::{data_table, Column, DataTableConfig};
 use crate::widgets::modals::{pull_image_modal, PullImageMessage};
 use domain::entities::Image;
 
 pub struct ImagesScreen {
+    pub font_size: u16,
     pub images: Vec<Image>,
     pub selected_index: Option<usize>,
     pub showing_pull_modal: bool,
@@ -19,6 +21,7 @@ pub struct ImagesScreen {
 impl Default for ImagesScreen {
     fn default() -> Self {
         Self {
+            font_size: 14,
             images: Vec::new(),
             selected_index: None,
             showing_pull_modal: false,
@@ -114,6 +117,7 @@ impl ImagesScreen {
     }
 
     pub fn view<'a>(&'a self) -> Element<'a, ImagesMessage, Theme, iced::Renderer> {
+        let fs = FontScale::new(self.font_size);
         if self.showing_pull_modal {
             return self.view_pull_modal();
         }
@@ -163,6 +167,11 @@ impl ImagesScreen {
             rows,
             self.selected_index,
             ImagesMessage::SelectImage,
+            None::<fn(usize) -> ImagesMessage>,
+            None::<fn(usize) -> ImagesMessage>,
+            None,
+            false,
+            self.font_size,
         );
 
         let action_bar = row![
@@ -189,14 +198,14 @@ impl ImagesScreen {
 
         container(
             column![
-                text("Images").size(20),
+                text("Images").size(fs.size(20)),
                 action_bar,
                 Space::new().height(8),
                 if let Some(ref err) = self.error_message {
                     let err_elem: Element<'_, ImagesMessage, Theme, iced::Renderer> =
                         text(err.clone())
                             .color(iced::Color::from_rgb(0.9, 0.2, 0.2))
-                            .size(12)
+                            .size(fs.size(12))
                             .into();
                     err_elem
                 } else {
@@ -217,6 +226,7 @@ impl ImagesScreen {
             &self.pull_image_name,
             &self.pull_image_tag,
             &self.pull_progress,
+            self.font_size,
         );
 
         // Map PullImageMessage variants to ImagesMessage

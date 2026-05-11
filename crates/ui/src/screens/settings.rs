@@ -1,9 +1,11 @@
 use iced::widget::{
-    button, column, container, pick_list, row, scrollable, text, text_input, Space,
+    button, column, container, pick_list, row, scrollable, slider, text, text_input, Space,
 };
 use iced::{Alignment, Element, Length, Padding, Theme};
 
 use domain::entities::{DockerEndpoint, ThemeSetting, ThemeVariant};
+
+use crate::typography::{FontScale, MONOSPACE_FONTS};
 
 pub struct SettingsScreen {
     pub theme_setting: ThemeSetting,
@@ -13,6 +15,10 @@ pub struct SettingsScreen {
     pub tls_key: String,
     pub saved: bool,
     pub test_result: Option<String>,
+    /// Selected monospace font family.
+    pub font_family: String,
+    /// Base font size in pixels (4..32).
+    pub font_size: u16,
 }
 
 impl Default for SettingsScreen {
@@ -26,6 +32,8 @@ impl Default for SettingsScreen {
             tls_key: String::new(),
             saved: false,
             test_result: None,
+            font_family: "Monospace".to_string(),
+            font_size: 14,
         }
     }
 }
@@ -40,6 +48,8 @@ pub enum SettingsMessage {
     TlsKeyChanged(String),
     TestConnection,
     TestResult(Result<String, String>),
+    FontFamilyChanged(String),
+    FontSizeChanged(u16),
     Save,
     Saved,
     Noop,
@@ -111,6 +121,14 @@ impl SettingsScreen {
                 };
                 iced::Task::none()
             }
+            SettingsMessage::FontFamilyChanged(family) => {
+                self.font_family = family;
+                iced::Task::none()
+            }
+            SettingsMessage::FontSizeChanged(size) => {
+                self.font_size = size;
+                iced::Task::none()
+            }
             SettingsMessage::Save => {
                 self.saved = true;
                 iced::Task::perform(async move { Ok::<_, String>(()) }, |_| {
@@ -123,6 +141,7 @@ impl SettingsScreen {
     }
 
     pub fn view<'a>(&'a self) -> Element<'a, SettingsMessage, Theme, iced::Renderer> {
+        let fs = FontScale::new(self.font_size);
         let theme_section = {
             let theme_mode_pick = pick_list(
                 vec![ThemeModeChoice::Auto, ThemeModeChoice::Manual],
@@ -134,9 +153,9 @@ impl SettingsScreen {
             );
 
             let mut section = column![
-                text("Theme").size(16),
+                text("Theme").size(fs.size(16)),
                 Space::new().height(8),
-                text("Theme mode:").size(12),
+                text("Theme mode:").size(fs.size(12)),
                 theme_mode_pick,
             ]
             .spacing(4);
@@ -157,39 +176,78 @@ impl SettingsScreen {
             section
         };
 
+        let typography_section = {
+            let font_families: Vec<String> =
+                MONOSPACE_FONTS.iter().map(|s| s.to_string()).collect();
+            let current_family = if font_families.iter().any(|f| f == &self.font_family) {
+                Some(self.font_family.clone())
+            } else {
+                // Custom font typed by user — show current value as selected
+                None
+            };
+
+            let font_picker = pick_list(
+                font_families,
+                current_family,
+                SettingsMessage::FontFamilyChanged,
+            );
+
+            let size_control = {
+                let size_label =
+                    text(format!("Font size: {} px", self.font_size)).size(fs.size(12));
+                let slider = slider(4..=32, self.font_size, SettingsMessage::FontSizeChanged)
+                    .width(200)
+                    .step(1u16);
+                row![size_label, Space::new().width(12), slider].align_y(Alignment::Center)
+            };
+
+            column![
+                text("Typography").size(fs.size(16)),
+                Space::new().height(8),
+                text("Monospace font family:").size(fs.size(12)),
+                font_picker,
+                Space::new().height(8),
+                size_control,
+                Space::new().height(4),
+                text("Changes to font settings take effect after restarting the application.")
+                    .size(fs.size(10)),
+            ]
+            .spacing(4)
+        };
+
         let endpoint_section = column![
-            text("Docker Endpoint").size(16),
+            text("Docker Endpoint").size(fs.size(16)),
             Space::new().height(8),
-            text("Host URL:").size(12),
+            text("Host URL:").size(fs.size(12)),
             text_input("unix:///var/run/docker.sock", &self.endpoint_url)
                 .on_input(SettingsMessage::EndpointUrlChanged)
                 .padding(6)
-                .size(12),
+                .size(fs.size(12)),
             Space::new().height(6),
-            text("TLS CA certificate path (optional):").size(12),
+            text("TLS CA certificate path (optional):").size(fs.size(12)),
             text_input("", &self.tls_ca)
                 .on_input(SettingsMessage::TlsCaChanged)
                 .padding(6)
-                .size(12),
+                .size(fs.size(12)),
             Space::new().height(6),
-            text("TLS certificate path (optional):").size(12),
+            text("TLS certificate path (optional):").size(fs.size(12)),
             text_input("", &self.tls_cert)
                 .on_input(SettingsMessage::TlsCertChanged)
                 .padding(6)
-                .size(12),
+                .size(fs.size(12)),
             Space::new().height(6),
-            text("TLS key path (optional):").size(12),
+            text("TLS key path (optional):").size(fs.size(12)),
             text_input("", &self.tls_key)
                 .on_input(SettingsMessage::TlsKeyChanged)
                 .padding(6)
-                .size(12),
+                .size(fs.size(12)),
             Space::new().height(8),
             row![
                 button(text("Test Connection")).on_press(SettingsMessage::TestConnection),
                 Space::new().width(8),
                 if let Some(ref result) = self.test_result {
                     let result_elem: Element<'_, SettingsMessage, Theme, iced::Renderer> =
-                        text(result.clone()).size(12).into();
+                        text(result.clone()).size(fs.size(12)).into();
                     result_elem
                 } else {
                     Space::new().width(0).into()
@@ -205,7 +263,7 @@ impl SettingsScreen {
             if self.saved {
                 let saved_text: Element<'_, SettingsMessage, Theme, iced::Renderer> =
                     text(" Saved!")
-                        .size(12)
+                        .size(fs.size(12))
                         .color(iced::Color::from_rgb(0.2, 0.7, 0.3))
                         .into();
                 saved_text
@@ -217,9 +275,11 @@ impl SettingsScreen {
 
         container(scrollable(
             column![
-                text("Settings").size(20),
+                text("Settings").size(fs.size(20)),
                 Space::new().height(8),
                 theme_section,
+                Space::new().height(20),
+                typography_section,
                 Space::new().height(20),
                 endpoint_section,
                 Space::new().height(16),

@@ -1,9 +1,18 @@
 use iced::widget::{column, container, image, row, text, Space};
 use iced::{Color, Element, Length, Theme};
 
+use crate::typography::FontScale;
+
 /// Dashboard screen state.
-#[derive(Default)]
-pub struct DashboardScreen;
+pub struct DashboardScreen {
+    pub font_size: u16,
+}
+
+impl Default for DashboardScreen {
+    fn default() -> Self {
+        Self { font_size: 14 }
+    }
+}
 
 impl DashboardScreen {
     /// Returns the view for the dashboard screen.
@@ -12,6 +21,7 @@ impl DashboardScreen {
         connected: bool,
         dark_mode: bool,
     ) -> Element<'a, Message, Theme, iced::Renderer> {
+        let fs = FontScale::new(self.font_size);
         let status_text = if connected {
             text("Docker is connected").color(Color::from_rgb(0.2, 0.7, 0.3))
         } else {
@@ -28,11 +38,11 @@ impl DashboardScreen {
             .height(128);
 
         let content = column![
-            text("Dashboard").size(24),
+            text("Dashboard").size(fs.size(24)),
             Space::new().height(8),
             container(logo).width(Length::Fill).center_x(Length::Fill),
             Space::new().height(12),
-            row![status_text.size(14)],
+            row![status_text.size(fs.size(14))],
         ]
         .spacing(16)
         .padding(24);

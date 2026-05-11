@@ -1,10 +1,12 @@
 use iced::widget::{button, column, container, row, text, text_input, Space};
 use iced::{Alignment, Element, Length, Padding, Theme};
 
+use crate::typography::FontScale;
 use crate::widgets::data_table::{data_table, Column, DataTableConfig};
 use domain::entities::Network;
 
 pub struct NetworksScreen {
+    pub font_size: u16,
     pub networks: Vec<Network>,
     pub selected_index: Option<usize>,
     pub show_create: bool,
@@ -16,6 +18,7 @@ pub struct NetworksScreen {
 impl Default for NetworksScreen {
     fn default() -> Self {
         Self {
+            font_size: 14,
             networks: Vec::new(),
             selected_index: None,
             show_create: false,
@@ -89,6 +92,7 @@ impl NetworksScreen {
     }
 
     pub fn view<'a>(&'a self) -> Element<'a, NetworksMessage, Theme, iced::Renderer> {
+        let fs = FontScale::new(self.font_size);
         let table_config = DataTableConfig {
             columns: vec![
                 Column {
@@ -143,6 +147,11 @@ impl NetworksScreen {
             rows,
             self.selected_index,
             NetworksMessage::SelectNetwork,
+            None::<fn(usize) -> NetworksMessage>,
+            None::<fn(usize) -> NetworksMessage>,
+            None,
+            false,
+            self.font_size,
         );
 
         let mut create_section: Vec<Element<'_, NetworksMessage, Theme, iced::Renderer>> =
@@ -158,18 +167,18 @@ impl NetworksScreen {
         if self.show_create {
             create_section.push(
                 row![
-                    text("Name:").size(12),
+                    text("Name:").size(fs.size(12)),
                     text_input("network-name", &self.new_network_name)
                         .on_input(NetworksMessage::NetworkNameChanged)
                         .padding(4)
-                        .size(12)
+                        .size(fs.size(12))
                         .width(120),
                     Space::new().width(8),
-                    text("Driver:").size(12),
+                    text("Driver:").size(fs.size(12)),
                     text_input("bridge", &self.new_network_driver)
                         .on_input(NetworksMessage::DriverChanged)
                         .padding(4)
-                        .size(12)
+                        .size(fs.size(12))
                         .width(100),
                     Space::new().width(8),
                     button(text("Create")).on_press(NetworksMessage::CreateNetwork),
@@ -181,7 +190,7 @@ impl NetworksScreen {
             );
         }
 
-        let mut content = column![text("Networks").size(20), action_row,].spacing(4);
+        let mut content = column![text("Networks").size(fs.size(20)), action_row,].spacing(4);
 
         for section in create_section {
             content = content.push(section);

@@ -1,10 +1,12 @@
 use iced::widget::{button, column, container, row, text, text_input, Space};
 use iced::{Alignment, Element, Length, Padding, Theme};
 
+use crate::typography::FontScale;
 use crate::widgets::data_table::{data_table, Column, DataTableConfig};
 use domain::entities::Volume;
 
 pub struct VolumesScreen {
+    pub font_size: u16,
     pub volumes: Vec<Volume>,
     pub selected_index: Option<usize>,
     pub show_create: bool,
@@ -15,6 +17,7 @@ pub struct VolumesScreen {
 impl Default for VolumesScreen {
     fn default() -> Self {
         Self {
+            font_size: 14,
             volumes: Vec::new(),
             selected_index: None,
             show_create: false,
@@ -83,6 +86,7 @@ impl VolumesScreen {
     }
 
     pub fn view<'a>(&'a self) -> Element<'a, VolumesMessage, Theme, iced::Renderer> {
+        let fs = FontScale::new(self.font_size);
         let table_config = DataTableConfig {
             columns: vec![
                 Column {
@@ -128,6 +132,11 @@ impl VolumesScreen {
             rows,
             self.selected_index,
             VolumesMessage::SelectVolume,
+            None::<fn(usize) -> VolumesMessage>,
+            None::<fn(usize) -> VolumesMessage>,
+            None,
+            false,
+            self.font_size,
         );
 
         let action_row = row![
@@ -139,11 +148,11 @@ impl VolumesScreen {
 
         if self.show_create {
             let create_bar = row![
-                text("Name:").size(12),
+                text("Name:").size(fs.size(12)),
                 text_input("volume-name", &self.new_volume_name)
                     .on_input(VolumesMessage::VolumeNameChanged)
                     .padding(4)
-                    .size(12),
+                    .size(fs.size(12)),
                 button(text("Create")).on_press(VolumesMessage::CreateVolume),
                 button(text("Cancel")).on_press(VolumesMessage::CloseCreate),
             ]
@@ -152,7 +161,7 @@ impl VolumesScreen {
 
             container(
                 column![
-                    text("Volumes").size(20),
+                    text("Volumes").size(fs.size(20)),
                     action_row,
                     Space::new().height(8),
                     create_bar,
@@ -168,7 +177,7 @@ impl VolumesScreen {
         } else {
             container(
                 column![
-                    text("Volumes").size(20),
+                    text("Volumes").size(fs.size(20)),
                     action_row,
                     Space::new().height(8),
                     table,
