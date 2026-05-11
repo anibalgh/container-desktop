@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/domain",
+    "crates/infrastructure",
+    "crates/ui",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Container Desktop Contributors"]
+license = "MIT"
+
+[package]
+name = "container-desktop"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+domain = { path = "crates/domain" }
+infrastructure = { path = "crates/infrastructure" }
+ui = { path = "crates/ui" }
+iced = { version = "0.14", features = ["tokio", "svg", "image"] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+anyhow = "1"

@@ -1,0 +1,21 @@
+[package]
+name = "ui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+domain = { path = "../domain" }
+infrastructure = { path = "../infrastructure" }
+iced = { version = "0.14", features = ["tokio", "svg", "image"] }
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+dark-light = "1"
+thiserror = "2"
+tracing = "0.1"
+bytes = "1"
+serde = { version = "1", features = ["derive"] }
+portable-pty = "0.8"
+vt100 = "0.16"
+ansi-parser = "0.9"
