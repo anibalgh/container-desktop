@@ -82,6 +82,27 @@ export interface LogLine {
   timestamp: string | null;
 }
 
+export interface StreamStatusEvent {
+  requestId: string;
+  status: "started" | "completed" | "failed";
+  error: string | null;
+}
+
+export interface LogStreamEvent {
+  requestId: string;
+  line: LogLine;
+}
+
+export interface TextStreamEvent {
+  requestId: string;
+  text: string;
+}
+
+export interface ProgressStreamEvent {
+  requestId: string;
+  message: string;
+}
+
 export interface ContainerStats {
   cpu_percent: number;
   memory_usage: string;

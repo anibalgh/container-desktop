@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { Language, LanguageSetting } from "../lib/types";
 import { messages, type Messages } from "./messages";

@@ -117,18 +117,13 @@ impl std::fmt::Display for ThemeVariant {
 }
 
 /// Theme mode setting: auto-detect or manual override.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum ThemeSetting {
     /// Automatically follow the OS theme preference.
+    #[default]
     Auto,
     /// Manually pick a specific theme.
     Manual(ThemeVariant),
-}
-
-impl Default for ThemeSetting {
-    fn default() -> Self {
-        ThemeSetting::Auto
-    }
 }
 
 /// Supported application languages.

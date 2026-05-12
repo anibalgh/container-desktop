@@ -1,5 +1,6 @@
 use domain::entities::DockerEndpoint;
 use domain::repository::DockerConnectionRepository;
+use std::net::IpAddr;
 use tauri::State;
 
 use crate::AppState;
@@ -40,9 +41,73 @@ fn validate_endpoint_url(url: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn tcp_host(url: &str) -> Result<&str, String> {
+    let authority = url
+        .strip_prefix("tcp://")
+        .ok_or_else(|| "Invalid TCP endpoint".to_string())?
+        .split('/')
+        .next()
+        .unwrap_or_default();
+
+    if authority.is_empty() {
+        return Err("TCP endpoint must include a host".to_string());
+    }
+
+    if authority.starts_with('[') {
+        let end = authority
+            .find(']')
+            .ok_or_else(|| "Invalid IPv6 TCP endpoint".to_string())?;
+        return Ok(&authority[1..end]);
+    }
+
+    Ok(authority
+        .rsplit_once(':')
+        .map(|(host, _)| host)
+        .unwrap_or(authority))
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    if host.eq_ignore_ascii_case("localhost") {
+        return true;
+    }
+
+    host.parse::<IpAddr>()
+        .map(|ip| ip.is_loopback())
+        .unwrap_or(false)
+}
+
+pub(crate) fn validate_docker_endpoint(endpoint: &DockerEndpoint) -> Result<(), String> {
+    validate_endpoint_url(&endpoint.host_url)?;
+
+    if endpoint.tls_ca.is_some() || endpoint.tls_cert.is_some() || endpoint.tls_key.is_some() {
+        return Err("TLS Docker endpoints are not implemented yet".to_string());
+    }
+
+    if endpoint.host_url.starts_with("tcp://") {
+        let host = tcp_host(&endpoint.host_url)?;
+        if !is_loopback_host(host) {
+            return Err(format!(
+                "Plain TCP Docker endpoints must use a local loopback host. Got: {host}"
+            ));
+        }
+    }
+
+    if endpoint.timeout_secs == 0 {
+        return Err("Endpoint timeout must be at least 1 second".to_string());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    if endpoint.host_url.starts_with("npipe://") {
+        return Err("Named pipe connections are only supported on Windows".to_string());
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::validate_endpoint_url;
+    use super::{validate_docker_endpoint, validate_endpoint_url};
+    use domain::entities::DockerEndpoint;
 
     #[test]
     fn valid_endpoint_urls() {
@@ -97,20 +162,81 @@ mod tests {
         let max_url = format!("tcp://{}", "b".repeat(4090));
         assert!(validate_endpoint_url(&max_url).is_ok());
     }
+
+    #[test]
+    fn loopback_tcp_endpoint_allowed() {
+        let endpoint = DockerEndpoint {
+            host_url: "tcp://127.0.0.1:2375".into(),
+            timeout_secs: 5,
+            ..Default::default()
+        };
+        assert!(validate_docker_endpoint(&endpoint).is_ok());
+
+        let endpoint = DockerEndpoint {
+            host_url: "tcp://localhost:2375".into(),
+            timeout_secs: 5,
+            ..Default::default()
+        };
+        assert!(validate_docker_endpoint(&endpoint).is_ok());
+
+        let endpoint = DockerEndpoint {
+            host_url: "tcp://[::1]:2375".into(),
+            timeout_secs: 5,
+            ..Default::default()
+        };
+        assert!(validate_docker_endpoint(&endpoint).is_ok());
+    }
+
+    #[test]
+    fn remote_tcp_endpoint_rejected() {
+        let endpoint = DockerEndpoint {
+            host_url: "tcp://192.168.1.10:2375".into(),
+            timeout_secs: 5,
+            ..Default::default()
+        };
+        let err = validate_docker_endpoint(&endpoint).unwrap_err();
+        assert!(err.contains("loopback"));
+    }
+
+    #[test]
+    fn tls_endpoint_rejected() {
+        let endpoint = DockerEndpoint {
+            host_url: "tcp://localhost:2376".into(),
+            tls_ca: Some("/tmp/ca.pem".into()),
+            timeout_secs: 5,
+            ..Default::default()
+        };
+        let err = validate_docker_endpoint(&endpoint).unwrap_err();
+        assert!(err.contains("not implemented"));
+    }
+
+    #[test]
+    fn zero_timeout_rejected() {
+        let endpoint = DockerEndpoint {
+            timeout_secs: 0,
+            ..Default::default()
+        };
+        let err = validate_docker_endpoint(&endpoint).unwrap_err();
+        assert!(err.contains("at least 1 second"));
+    }
 }
 
 #[tauri::command]
 pub async fn connect(
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
     endpoint: DockerEndpoint,
 ) -> Result<domain::entities::DockerInfo, String> {
-    // Validate the endpoint URL before attempting connection
-    validate_endpoint_url(&endpoint.host_url)?;
-
-    // Create a new client for the given endpoint
-    let client = infrastructure::DockerClient::new(endpoint);
-    client.connect().await.map_err(|e| e.to_string())?;
-    client.test_connection().await.map_err(|e| e.to_string())
+    validate_docker_endpoint(&endpoint)?;
+    state
+        .docker_client
+        .reconfigure(endpoint)
+        .await
+        .map_err(|e| e.to_string())?;
+    state
+        .docker_client
+        .test_connection()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

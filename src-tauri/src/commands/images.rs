@@ -3,7 +3,7 @@ use domain::repository::ImageRepository;
 use futures::StreamExt;
 use tauri::{Emitter, State};
 
-use super::validate_docker_id;
+use super::{validate_docker_id, ProgressStreamEvent, StreamStatus, StreamStatusEvent};
 use crate::AppState;
 
 #[tauri::command]
@@ -21,6 +21,7 @@ pub async fn pull_image(
     state: State<'_, AppState>,
     name: String,
     tag: Option<String>,
+    request_id: String,
 ) -> Result<(), String> {
     let stream = state
         .docker_client
@@ -28,22 +29,55 @@ pub async fn pull_image(
         .await
         .map_err(|e| e.to_string())?;
 
+    app.emit(
+        "image-pull-status",
+        StreamStatusEvent {
+            request_id: request_id.clone(),
+            status: StreamStatus::Started,
+            error: None,
+        },
+    )
+    .map_err(|e| e.to_string())?;
+
     let app_clone = app.clone();
     tauri::async_runtime::spawn(async move {
         futures::pin_mut!(stream);
+        let mut failed = None;
         while let Some(result) = stream.next().await {
             match result {
                 Ok(msg) => {
-                    if app_clone.emit("image-pull-progress", &msg).is_err() {
+                    if app_clone
+                        .emit(
+                            "image-pull-progress",
+                            ProgressStreamEvent {
+                                request_id: request_id.clone(),
+                                message: msg,
+                            },
+                        )
+                        .is_err()
+                    {
                         break;
                     }
                 }
                 Err(e) => {
-                    let _ = app_clone.emit("image-pull-progress", &format!("Error: {e}"));
+                    failed = Some(e.to_string());
                     break;
                 }
             }
         }
+
+        let _ = app_clone.emit(
+            "image-pull-status",
+            StreamStatusEvent {
+                request_id,
+                status: if failed.is_some() {
+                    StreamStatus::Failed
+                } else {
+                    StreamStatus::Completed
+                },
+                error: failed,
+            },
+        );
     });
 
     Ok(())

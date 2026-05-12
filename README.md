@@ -68,8 +68,8 @@ If the bootstrap fails, the agent should stop and surface the failure instead of
 ### Connection Options
 
 - Local Docker daemon (auto-detect on startup)
-- Remote Docker over TCP
-- TLS-secured connections (certificate-based)
+- Local loopback Docker over TCP (`tcp://localhost`, `127.0.0.1`, `::1`)
+- TLS-secured remote connections are not implemented yet
 
 ---
 
@@ -98,7 +98,7 @@ Dependency direction: `domain ← infrastructure ← src-tauri`
 - **Node.js** 24 LTS and **npm**
 - **Rust** 1.88+ ([rustup.rs](https://rustup.rs))
 - **Docker Engine** running locally (or a remote daemon)
-- **docker-compose** binary (optional, for Compose features)
+- **Docker Compose v2** via `docker compose` (required for Compose features)
 
 ### System Dependencies (Linux)
 
@@ -176,7 +176,7 @@ npx tsc --noEmit   # Type check only
 | **Volumes** | Sortable table. Create / remove. |
 | **Networks** | Sortable table. Create with driver selector (bridge/overlay/host/none). Remove. |
 | **Docker Compose** | Compose file path input, up/down buttons, live output stream |
-| **Settings** | Theme (Auto/Manual + 22 variants), Docker endpoint URL, Font Size (Normal/Large/Larger), Monospace Font (system detection) |
+| **Settings** | Theme (Auto/Manual + 22 variants), Docker endpoint URL, remote connection help modal, Font Size (Normal/Large/Larger), Monospace Font (system detection) |
 | **Acerca de** | Project summary, MIT license, tech stack, and vibe coding note with minimalist access from the sidebar footer |
 
 ### Theme Selection
@@ -234,6 +234,37 @@ Settings are persisted to:
   "font_size": 14
 }
 ```
+
+### Remote Docker via SSH tunnel
+
+Container Desktop only accepts direct `tcp://` endpoints for local loopback addresses. To use a Docker daemon from another machine on your LAN, expose the remote Docker socket on the **remote loopback** and tunnel it back to your machine over SSH.
+
+1. Install `socat` on the remote machine:
+
+   ```bash
+   # Ubuntu / Debian
+   sudo apt update && sudo apt install -y socat
+   ```
+
+2. On the remote machine, bridge loopback TCP to the Docker socket:
+
+   ```bash
+   socat TCP-LISTEN:2375,bind=127.0.0.1,fork UNIX-CONNECT:/var/run/docker.sock
+   ```
+
+3. On your local machine, create the SSH tunnel:
+
+   ```bash
+   ssh -N -L 23750:127.0.0.1:2375 usuario@192.168.0.135
+   ```
+
+4. In **Settings**, use this endpoint:
+
+   ```text
+   tcp://127.0.0.1:23750
+   ```
+
+The Settings screen includes the same instructions in a built-in help modal next to the Docker endpoint field.
 
 ---
 

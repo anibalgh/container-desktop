@@ -103,8 +103,8 @@ pub struct ContainerConfig {
     pub command: Option<Vec<String>>,
     /// Environment variables in KEY=VALUE format.
     pub env: Vec<String>,
-    /// Port mappings (container_port -> host_port).
-    pub port_mappings: Vec<(String, String)>,
+    /// Port mappings to publish when creating the container.
+    pub port_mappings: Vec<PortMapping>,
     /// Volume mounts.
     pub volumes: Vec<(String, String)>,
     /// Whether to run in detached mode.

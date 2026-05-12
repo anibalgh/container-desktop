@@ -1,8 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
-  DockerInfo, Container, Image, Volume, Network, LogLine,
-  ContainerStats, DockerEndpoint, AppSettings,
+  DockerInfo, Container, Image, Volume, Network,
+  ContainerStats, DockerEndpoint, AppSettings, LogStreamEvent,
+  ProgressStreamEvent, StreamStatusEvent, TextStreamEvent,
 } from "./types";
 
 // ─── Connection ────────────────────────────────────────────
@@ -32,14 +33,24 @@ export async function restartContainer(id: string): Promise<void> {
 export async function removeContainer(id: string): Promise<void> {
   return invoke("remove_container", { id });
 }
-export async function containerLogs(
-  id: string, tail: number | null, follow: boolean,
-  since: number | null, until: number | null,
-): Promise<void> {
-  return invoke("container_logs", { id, tail, follow, since, until });
+export interface ContainerLogOptions {
+  tail: number | null;
+  follow: boolean;
+  since: number | null;
+  until: number | null;
+  requestId: string;
 }
-export function onContainerLogLine(cb: (line: LogLine) => void): Promise<UnlistenFn> {
-  return listen<LogLine>("container-log-line", (e) => cb(e.payload));
+export async function containerLogs(
+  id: string,
+  options: ContainerLogOptions,
+): Promise<void> {
+  return invoke("container_logs", { id, options });
+}
+export function onContainerLogLine(cb: (event: LogStreamEvent) => void): Promise<UnlistenFn> {
+  return listen<LogStreamEvent>("container-log-line", (e) => cb(e.payload));
+}
+export function onContainerLogStatus(cb: (event: StreamStatusEvent) => void): Promise<UnlistenFn> {
+  return listen<StreamStatusEvent>("container-log-status", (e) => cb(e.payload));
 }
 export async function inspectContainer(id: string): Promise<string> {
   return invoke("inspect_container", { id });
@@ -47,11 +58,11 @@ export async function inspectContainer(id: string): Promise<string> {
 export async function containerStats(id: string): Promise<ContainerStats> {
   return invoke("container_stats", { id });
 }
-export async function execCreate(id: string, cmd: string[]): Promise<string> {
-  return invoke("exec_create", { id, cmd });
+export async function execCreate(id: string, cmd: string[], user: string | null): Promise<string> {
+  return invoke("exec_create", { id, cmd, user });
 }
-export async function execStart(execId: string): Promise<void> {
-  return invoke("exec_start", { execIdStr: execId });
+export async function execStart(execId: string, requestId: string): Promise<void> {
+  return invoke("exec_start", { execIdStr: execId, requestId });
 }
 export async function execInput(execId: string, data: number[]): Promise<void> {
   return invoke("exec_input", { execIdStr: execId, data });
@@ -59,19 +70,25 @@ export async function execInput(execId: string, data: number[]): Promise<void> {
 export async function execResize(execId: string, w: number, h: number): Promise<void> {
   return invoke("exec_resize", { execIdStr: execId, width: w, height: h });
 }
-export function onExecOutput(cb: (text: string) => void): Promise<UnlistenFn> {
-  return listen<string>("exec-output", (e) => cb(e.payload));
+export function onExecOutput(cb: (event: TextStreamEvent) => void): Promise<UnlistenFn> {
+  return listen<TextStreamEvent>("exec-output", (e) => cb(e.payload));
+}
+export function onExecStatus(cb: (event: StreamStatusEvent) => void): Promise<UnlistenFn> {
+  return listen<StreamStatusEvent>("exec-status", (e) => cb(e.payload));
 }
 
 // ─── Images ────────────────────────────────────────────────
 export async function listImages(): Promise<Image[]> {
   return invoke("list_images");
 }
-export async function pullImage(name: string, tag: string | null): Promise<void> {
-  return invoke("pull_image", { name, tag });
+export async function pullImage(name: string, tag: string | null, requestId: string): Promise<void> {
+  return invoke("pull_image", { name, tag, requestId });
 }
-export function onImagePullProgress(cb: (msg: string) => void): Promise<UnlistenFn> {
-  return listen<string>("image-pull-progress", (e) => cb(e.payload));
+export function onImagePullProgress(cb: (event: ProgressStreamEvent) => void): Promise<UnlistenFn> {
+  return listen<ProgressStreamEvent>("image-pull-progress", (e) => cb(e.payload));
+}
+export function onImagePullStatus(cb: (event: StreamStatusEvent) => void): Promise<UnlistenFn> {
+  return listen<StreamStatusEvent>("image-pull-status", (e) => cb(e.payload));
 }
 export async function removeImage(id: string): Promise<void> {
   return invoke("remove_image", { id });
@@ -112,17 +129,20 @@ export async function inspectNetwork(id: string): Promise<string> {
 }
 
 // ─── Compose ───────────────────────────────────────────────
-export async function composeUp(filePath: string): Promise<void> {
-  return invoke("compose_up", { filePath });
+export async function composeUp(filePath: string, requestId: string): Promise<void> {
+  return invoke("compose_up", { filePath, requestId });
 }
 export async function composeDown(filePath: string): Promise<void> {
   return invoke("compose_down", { filePath });
 }
-export async function composeLogs(filePath: string): Promise<void> {
-  return invoke("compose_logs", { filePath });
+export async function composeLogs(filePath: string, requestId: string): Promise<void> {
+  return invoke("compose_logs", { filePath, requestId });
 }
-export function onComposeOutput(cb: (line: LogLine) => void): Promise<UnlistenFn> {
-  return listen<LogLine>("compose-output", (e) => cb(e.payload));
+export function onComposeOutput(cb: (event: LogStreamEvent) => void): Promise<UnlistenFn> {
+  return listen<LogStreamEvent>("compose-output", (e) => cb(e.payload));
+}
+export function onComposeStatus(cb: (event: StreamStatusEvent) => void): Promise<UnlistenFn> {
+  return listen<StreamStatusEvent>("compose-status", (e) => cb(e.payload));
 }
 export async function composePs(filePath: string): Promise<string[]> {
   return invoke("compose_ps", { filePath });

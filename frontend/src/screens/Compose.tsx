@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { composeUp, composeDown, onComposeOutput } from "../lib/tauri";
+import { composeUp, composeDown, onComposeOutput, onComposeStatus } from "../lib/tauri";
 import type { LogLine } from "../lib/types";
 import { useI18n } from "../i18n";
+
+const MAX_COMPOSE_LINES = 500;
 
 export function ComposeScreen() {
   const { t } = useI18n();
@@ -12,19 +14,36 @@ export function ComposeScreen() {
 
   async function doUp() {
     if (!filePath.trim()) return;
+    const requestId = crypto.randomUUID();
     setRunning(true);
     setOutput([]);
     setError(null);
-    const unlisten = await onComposeOutput((line) => {
-      setOutput((prev) => [...prev, line]);
+    let resolveStatus!: () => void;
+    let rejectStatus!: (error: Error) => void;
+    const statusPromise = new Promise<void>((resolve, reject) => {
+      resolveStatus = resolve;
+      rejectStatus = reject;
     });
+    const [unlistenOutput, unlistenStatus] = await Promise.all([
+      onComposeOutput((event) => {
+        if (event.requestId !== requestId) return;
+        setOutput((prev) => [...prev, event.line].slice(-MAX_COMPOSE_LINES));
+      }),
+      onComposeStatus((event) => {
+        if (event.requestId !== requestId) return;
+        if (event.status === "completed") resolveStatus();
+        if (event.status === "failed") rejectStatus(new Error(event.error ?? "Compose failed"));
+      }),
+    ]);
     try {
-      await composeUp(filePath.trim());
+      await composeUp(filePath.trim(), requestId);
+      await statusPromise;
     } catch (e) {
       setError(String(e));
     } finally {
       setRunning(false);
-      unlisten();
+      unlistenOutput();
+      unlistenStatus();
     }
   }
 

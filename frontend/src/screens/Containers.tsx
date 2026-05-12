@@ -2,13 +2,22 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import type { Container, ContainerStats } from "../lib/types";
 import {
   listContainers, startContainer, stopContainer, restartContainer, removeContainer,
-  containerLogs, onContainerLogLine, containerStats,
-  execCreate, execStart, execInput, onExecOutput,
+  containerLogs, onContainerLogLine, onContainerLogStatus, containerStats,
+  execCreate, execStart, execInput, onExecOutput, onExecStatus,
 } from "../lib/tauri";
 import { useI18n } from "../i18n";
 
 type SortDir = "asc" | "desc";
 type TabId = "logs" | "terminal" | "stats";
+const MAX_LOG_LINES = 600;
+const MAX_TERMINAL_LINES = 600;
+
+function appendCappedText(current: string, addition: string, maxLines: number) {
+  const combined = `${current}${addition}`;
+  const lines = combined.split("\n");
+  if (lines.length <= maxLines) return combined;
+  return lines.slice(lines.length - maxLines).join("\n");
+}
 
 function useSort<T>(data: T[], defaultCol: keyof T) {
   const [col, setCol] = useState<keyof T>(defaultCol);
@@ -55,6 +64,7 @@ export function ContainersScreen() {
   const [logFollow, setLogFollow] = useState(false);
   const [logLoading, setLogLoading] = useState(false);
   const logUnlisten = useRef<(() => void) | null>(null);
+  const logStatusUnlisten = useRef<(() => void) | null>(null);
 
   // Terminal state
   const [termShell, setTermShell] = useState("sh");
@@ -66,6 +76,7 @@ export function ContainersScreen() {
   const [termConnected, setTermConnected] = useState(false);
   const [termExecId, setTermExecId] = useState<string | null>(null);
   const termUnlisten = useRef<(() => void) | null>(null);
+  const termStatusUnlisten = useRef<(() => void) | null>(null);
 
   // Stats state
   const [stats, setStats] = useState<ContainerStats | null>(null);
@@ -85,7 +96,9 @@ export function ContainersScreen() {
   useEffect(() => {
     return () => {
       logUnlisten.current?.();
+      logStatusUnlisten.current?.();
       termUnlisten.current?.();
+      termStatusUnlisten.current?.();
     };
   }, []);
 
@@ -111,25 +124,42 @@ export function ContainersScreen() {
   async function loadLogs() {
     if (!selected) return;
     logUnlisten.current?.();
+    logStatusUnlisten.current?.();
     setLogLines(""); setLogLoading(true);
+    const requestId = crypto.randomUUID();
     const tailNum = parseInt(logTail) || 100;
     const sinceTs = logSince ? Math.floor(new Date(logSince).getTime() / 1000) : null;
     const untilTs = logUntil ? Math.floor(new Date(logUntil).getTime() / 1000) : null;
-    const unlisten = await onContainerLogLine((line) => {
-      setLogLines((prev) => prev + `[${line.stream}] ${line.content}\n`);
+    const unlisten = await onContainerLogLine((event) => {
+      if (event.requestId !== requestId) return;
+      setLogLines((prev) => appendCappedText(prev, `[${event.line.stream}] ${event.line.content}\n`, MAX_LOG_LINES));
+    });
+    const statusUnlisten = await onContainerLogStatus((event) => {
+      if (event.requestId !== requestId) return;
+      if (event.status === "failed") setError(event.error ?? "Container logs failed");
+      if (event.status !== "started") setLogLoading(false);
     });
     logUnlisten.current = unlisten;
+    logStatusUnlisten.current = statusUnlisten;
     try {
-      await containerLogs(selected, tailNum, logFollow, sinceTs, untilTs);
+      await containerLogs(selected, {
+        tail: tailNum,
+        follow: logFollow,
+        since: sinceTs,
+        until: untilTs,
+        requestId,
+      });
     } catch (e) { setError(String(e)); }
-    finally { setLogLoading(false); }
+    finally { if (logFollow) setLogLoading(false); }
   }
 
   // ── Terminal ──
   async function connectTerminal() {
     if (!selected) return;
     termUnlisten.current?.();
+    termStatusUnlisten.current?.();
     setTermOutput(""); setTermConnected(false);
+    const requestId = crypto.randomUUID();
     const cmd: string[] = [];
     if (termRoot) cmd.push("-u", "root");
     cmd.push(selected);
@@ -138,29 +168,41 @@ export function ContainersScreen() {
       cmd.push("-c", termCmd.trim());
     }
     // Use docker exec via command for simplicity
-    setTermOutput((prev) => prev + `$ docker exec ${cmd.join(" ")}\n`);
+    setTermOutput((prev) => appendCappedText(prev, `$ docker exec ${cmd.join(" ")}\n`, MAX_TERMINAL_LINES));
 
-    const unlisten = await onExecOutput((text) => {
-      setTermOutput((prev) => prev + text);
+    const unlisten = await onExecOutput((event) => {
+      if (event.requestId !== requestId) return;
+      setTermOutput((prev) => appendCappedText(prev, event.text, MAX_TERMINAL_LINES));
+    });
+    const statusUnlisten = await onExecStatus((event) => {
+      if (event.requestId !== requestId) return;
+      if (event.status === "failed") {
+        setTermConnected(false);
+        setTermOutput((prev) => appendCappedText(prev, `\nError: ${event.error ?? "Exec failed"}\n`, MAX_TERMINAL_LINES));
+      }
+      if (event.status === "completed" && termMode !== "interactive") {
+        setTermConnected(false);
+      }
     });
     termUnlisten.current = unlisten;
+    termStatusUnlisten.current = statusUnlisten;
 
     try {
       const execId = await execCreate(selected, termMode === "command"
         ? [termShell, "-c", termCmd.trim()]
-        : [termShell]);
+        : [termShell], termRoot ? "root" : null);
       setTermExecId(execId);
-      await execStart(execId);
+      await execStart(execId, requestId);
       setTermConnected(termMode === "interactive");
     } catch (e) {
-      setTermOutput((prev) => prev + `Error: ${e}\n`);
+      setTermOutput((prev) => appendCappedText(prev, `Error: ${e}\n`, MAX_TERMINAL_LINES));
     }
   }
 
   async function sendTermInput() {
     if (!termExecId || !termInput.trim()) return;
     const data = new TextEncoder().encode(termInput + "\n");
-    setTermOutput((prev) => prev + `$ ${termInput}\n`);
+    setTermOutput((prev) => appendCappedText(prev, `$ ${termInput}\n`, MAX_TERMINAL_LINES));
     setTermInput("");
     try { await execInput(termExecId, Array.from(data)); }
     catch (e) { setError(String(e)); }

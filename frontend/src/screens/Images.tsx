@@ -1,9 +1,16 @@
 import { useEffect, useState, useCallback } from "react";
 import type { Image } from "../lib/types";
-import { listImages, pullImage, removeImage, onImagePullProgress } from "../lib/tauri";
+import {
+  listImages,
+  pullImage,
+  removeImage,
+  onImagePullProgress,
+  onImagePullStatus,
+} from "../lib/tauri";
 import { useI18n } from "../i18n";
 
 type SortDir = "asc" | "desc";
+const MAX_PULL_PROGRESS_LINES = 400;
 
 function useSort<T>(data: T[], defaultCol: keyof T) {
   const [col, setCol] = useState<keyof T>(defaultCol);
@@ -70,11 +77,35 @@ export function ImagesScreen() {
 
   async function doPull() {
     if (!pullName.trim()) return;
+    const requestId = crypto.randomUUID();
     setPulling(true); setPullProgress([]);
-    const unlisten = await onImagePullProgress((msg) => setPullProgress((prev) => [...prev, msg]));
-    try { await pullImage(pullName.trim(), pullTag || null); await load(); setShowPull(false); setPullName(""); setPullTag("latest"); }
+    let resolveStatus!: () => void;
+    let rejectStatus!: (error: Error) => void;
+    const statusPromise = new Promise<void>((resolve, reject) => {
+      resolveStatus = resolve;
+      rejectStatus = reject;
+    });
+    const [unlistenProgress, unlistenStatus] = await Promise.all([
+      onImagePullProgress((event) => {
+        if (event.requestId !== requestId) return;
+        setPullProgress((prev) => [...prev, event.message].slice(-MAX_PULL_PROGRESS_LINES));
+      }),
+      onImagePullStatus((event) => {
+        if (event.requestId !== requestId) return;
+        if (event.status === "completed") resolveStatus();
+        if (event.status === "failed") rejectStatus(new Error(event.error ?? "Image pull failed"));
+      }),
+    ]);
+    try {
+      await pullImage(pullName.trim(), pullTag || null, requestId);
+      await statusPromise;
+      await load();
+      setShowPull(false);
+      setPullName("");
+      setPullTag("latest");
+    }
     catch (e) { setError(String(e)); }
-    finally { setPulling(false); unlisten(); }
+    finally { setPulling(false); unlistenProgress(); unlistenStatus(); }
   }
 
   async function doRemove(id: string) {

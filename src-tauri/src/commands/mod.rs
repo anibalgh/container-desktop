@@ -6,6 +6,46 @@ pub mod networks;
 pub mod settings;
 pub mod volumes;
 
+use domain::entities::LogLine;
+use serde::Serialize;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StreamStatusEvent {
+    pub request_id: String,
+    pub status: StreamStatus,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum StreamStatus {
+    Started,
+    Completed,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LogStreamEvent {
+    pub request_id: String,
+    pub line: LogLine,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TextStreamEvent {
+    pub request_id: String,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ProgressStreamEvent {
+    pub request_id: String,
+    pub message: String,
+}
+
 /// Validates a Docker resource ID for length and null bytes to prevent DoS attacks.
 ///
 /// Docker IDs (container, image, volume, network) are typically SHA256 hashes

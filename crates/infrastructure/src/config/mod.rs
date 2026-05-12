@@ -4,6 +4,7 @@ use domain::entities::AppSettings;
 use domain::repository::SettingsRepository;
 use domain::{DomainError, DomainResult};
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Manages application settings via JSON files in the user config directory.
 pub struct ConfigManager {
@@ -62,21 +63,38 @@ impl ConfigManager {
 
         (settings.font_family, settings.font_size)
     }
+
+    fn temp_config_path(&self) -> DomainResult<PathBuf> {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| DomainError::Config(format!("Cannot generate temp file name: {e}")))?
+            .as_nanos();
+        let file_name = format!(".settings.{nonce}.tmp");
+        let parent = self.config_path.parent().ok_or_else(|| {
+            DomainError::Config("Settings path has no parent directory".to_string())
+        })?;
+
+        Ok(parent.join(file_name))
+    }
 }
 
 #[async_trait]
 impl SettingsRepository for ConfigManager {
     /// Loads settings from the JSON config file, or returns defaults if not found.
     async fn load_settings(&self) -> DomainResult<AppSettings> {
-        if !self.config_path.exists() {
-            let defaults = AppSettings::default();
-            self.save_settings(&defaults).await?;
-            return Ok(defaults);
-        }
-
-        let content = tokio::fs::read_to_string(&self.config_path)
-            .await
-            .map_err(|e| DomainError::Config(format!("Cannot read settings file: {e}")))?;
+        let content = match tokio::fs::read_to_string(&self.config_path).await {
+            Ok(content) => content,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                let defaults = AppSettings::default();
+                self.save_settings(&defaults).await?;
+                return Ok(defaults);
+            }
+            Err(e) => {
+                return Err(DomainError::Config(format!(
+                    "Cannot read settings file: {e}"
+                )))
+            }
+        };
 
         let settings: AppSettings = serde_json::from_str(&content)
             .map_err(|e| DomainError::Serialization(format!("Invalid settings JSON: {e}")))?;
@@ -88,10 +106,22 @@ impl SettingsRepository for ConfigManager {
     async fn save_settings(&self, settings: &AppSettings) -> DomainResult<()> {
         let content = serde_json::to_string_pretty(settings)
             .map_err(|e| DomainError::Serialization(format!("Cannot serialize settings: {e}")))?;
+        let temp_path = self.temp_config_path()?;
 
-        tokio::fs::write(&self.config_path, content)
+        tokio::fs::write(&temp_path, content)
             .await
-            .map_err(|e| DomainError::Config(format!("Cannot write settings file: {e}")))?;
+            .map_err(|e| DomainError::Config(format!("Cannot write temp settings file: {e}")))?;
+
+        #[cfg(target_os = "windows")]
+        if self.config_path.exists() {
+            tokio::fs::remove_file(&self.config_path)
+                .await
+                .map_err(|e| DomainError::Config(format!("Cannot replace settings file: {e}")))?;
+        }
+
+        tokio::fs::rename(&temp_path, &self.config_path)
+            .await
+            .map_err(|e| DomainError::Config(format!("Cannot persist settings file: {e}")))?;
 
         Ok(())
     }
@@ -115,10 +145,12 @@ mod tests {
 
         let mgr = ConfigManager::with_path(path.clone());
 
-        let mut settings = AppSettings::default();
-        settings.window_width = 1920;
-        settings.window_height = 1080;
-        settings.font_size = 18;
+        let settings = AppSettings {
+            window_width: 1920,
+            window_height: 1080,
+            font_size: 18,
+            ..AppSettings::default()
+        };
 
         mgr.save_settings(&settings).await.unwrap();
         let loaded = mgr.load_settings().await.unwrap();
@@ -162,14 +194,45 @@ mod tests {
 
         let mgr = ConfigManager::with_path(path.clone());
 
-        let mut settings = AppSettings::default();
-        settings.font_family = "Fira Code".into();
-        settings.font_size = 16;
+        let settings = AppSettings {
+            font_family: "Fira Code".into(),
+            font_size: 16,
+            ..AppSettings::default()
+        };
         mgr.save_settings(&settings).await.unwrap();
 
         let (family, size) = mgr.load_font_settings_sync();
         assert_eq!(family, "Fira Code");
         assert_eq!(size, 16);
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[tokio::test]
+    async fn save_overwrites_existing_settings() {
+        let dir = test_dir();
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("overwrite_settings_test.json");
+        std::fs::remove_file(&path).ok();
+
+        let mgr = ConfigManager::with_path(path.clone());
+
+        let first = AppSettings {
+            window_width: 800,
+            ..AppSettings::default()
+        };
+        mgr.save_settings(&first).await.unwrap();
+
+        let second = AppSettings {
+            window_width: 1440,
+            font_size: 18,
+            ..AppSettings::default()
+        };
+        mgr.save_settings(&second).await.unwrap();
+
+        let loaded = mgr.load_settings().await.unwrap();
+        assert_eq!(loaded.window_width, 1440);
+        assert_eq!(loaded.font_size, 18);
 
         std::fs::remove_file(&path).ok();
     }

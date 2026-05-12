@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Docker daemon connection endpoint configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DockerEndpoint {
     /// The connection URL.
     ///

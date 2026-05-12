@@ -12,16 +12,20 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
   const { t } = useI18n();
   const [info, setInfo] = useState<DockerInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   useEffect(() => {
     // Listen for initial connection event
     const unlisten1 = onDockerConnected((data) => {
       setInfo(data);
+      setConnectionError(null);
       onConnectionChange(data);
       setLoading(false);
     });
 
     const unlisten2 = onDockerError((err) => {
+      setInfo(null);
+      setConnectionError(err);
       onConnectionChange(null, err);
       setLoading(false);
     });
@@ -30,10 +34,17 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
     testConnection()
       .then((data) => {
         setInfo(data);
+        setConnectionError(null);
         onConnectionChange(data);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        const message = String(err);
+        setInfo(null);
+        setConnectionError(message);
+        onConnectionChange(null, message);
+        setLoading(false);
+      });
 
     return () => {
       unlisten1.then((f) => f());
@@ -70,6 +81,11 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
           <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>
             {t.dashboard.daemonHelp}
           </p>
+          {connectionError && (
+            <p className="text-sm mt-3 font-mono break-all" style={{ color: "var(--color-danger)" }}>
+              {connectionError}
+            </p>
+          )}
         </div>
       </div>
     );

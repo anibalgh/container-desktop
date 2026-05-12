@@ -46,8 +46,40 @@ fn validate_container_name(name: &str) -> DomainResult<()> {
     for (i, c) in name.chars().enumerate() {
         if !c.is_ascii_alphanumeric() && c != '_' && c != '.' && c != '-' {
             return Err(DomainError::Config(format!(
-                "Invalid character '{}' at position {} in container name '{name}'",
-                c, i
+                "Invalid character '{c}' at position {i} in container name '{name}'"
+            )));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_container_create_config(config: &ContainerConfig) -> DomainResult<()> {
+    if config.image.trim().is_empty() {
+        return Err(DomainError::Config(
+            "Container image cannot be empty".to_string(),
+        ));
+    }
+
+    for mapping in &config.port_mappings {
+        if mapping.container_port.trim().is_empty() {
+            return Err(DomainError::Config(
+                "Container port cannot be empty".to_string(),
+            ));
+        }
+        if mapping.host_port.trim().is_empty() {
+            return Err(DomainError::Config("Host port cannot be empty".to_string()));
+        }
+
+        let protocol = if mapping.protocol.trim().is_empty() {
+            "tcp"
+        } else {
+            mapping.protocol.trim()
+        };
+
+        if !matches!(protocol, "tcp" | "udp" | "sctp") {
+            return Err(DomainError::Config(format!(
+                "Unsupported port mapping protocol: {protocol}"
             )));
         }
     }
@@ -81,10 +113,9 @@ impl ContainerRepository for DockerClient {
                                     .unwrap_or_default(),
                                 container_port: p.private_port.to_string(),
                                 protocol: match p.typ {
-                                    Some(t) => format!("{t:?}")
-                                        .to_lowercase()
-                                        .trim_matches('"')
-                                        .to_string(),
+                                    Some(t) => {
+                                        format!("{t:?}").to_lowercase().trim_matches('"').to_owned()
+                                    }
                                     None => "tcp".to_string(),
                                 },
                             })
@@ -101,10 +132,9 @@ impl ContainerRepository for DockerClient {
                                 source: m.source.unwrap_or_default(),
                                 destination: m.destination.unwrap_or_default(),
                                 mount_type: match m.typ {
-                                    Some(t) => format!("{t:?}")
-                                        .to_lowercase()
-                                        .trim_matches('"')
-                                        .to_string(),
+                                    Some(t) => {
+                                        format!("{t:?}").to_lowercase().trim_matches('"').to_owned()
+                                    }
                                     None => "bind".to_string(),
                                 },
                                 read_only: !m.rw.unwrap_or(true),
@@ -116,12 +146,7 @@ impl ContainerRepository for DockerClient {
                 let state = c
                     .state
                     .map(|s| {
-                        parse_container_state(
-                            &format!("{s:?}")
-                                .to_lowercase()
-                                .trim_matches('"')
-                                .to_string(),
-                        )
+                        parse_container_state(format!("{s:?}").to_lowercase().trim_matches('"'))
                     })
                     .unwrap_or(ContainerState::Created);
 
@@ -136,7 +161,7 @@ impl ContainerRepository for DockerClient {
                     state,
                     ports,
                     mounts,
-                    created: c.created.map(|ts| format_created(ts)).unwrap_or_default(),
+                    created: c.created.map(format_created).unwrap_or_default(),
                     command: c.command.unwrap_or_default(),
                 }
             })
@@ -147,6 +172,7 @@ impl ContainerRepository for DockerClient {
 
     async fn create_container(&self, config: &ContainerConfig) -> DomainResult<String> {
         let docker = self.get_docker().await?;
+        validate_container_create_config(config)?;
 
         // Validate the container name if provided
         if let Some(ref name) = config.name {
@@ -165,12 +191,22 @@ impl ContainerRepository for DockerClient {
         }
         if !config.port_mappings.is_empty() {
             let mut pb = std::collections::HashMap::new();
-            for (cp, hp) in &config.port_mappings {
+            for mapping in &config.port_mappings {
+                let protocol = if mapping.protocol.trim().is_empty() {
+                    "tcp"
+                } else {
+                    mapping.protocol.trim()
+                };
+                let host_ip = if mapping.host_ip.trim().is_empty() {
+                    "127.0.0.1"
+                } else {
+                    mapping.host_ip.trim()
+                };
                 pb.insert(
-                    format!("{cp}/tcp"),
+                    format!("{}/{}", mapping.container_port.trim(), protocol),
                     Some(vec![bollard::config::PortBinding {
-                        host_ip: Some("0.0.0.0".to_string()),
-                        host_port: Some(hp.clone()),
+                        host_ip: Some(host_ip.to_string()),
+                        host_port: Some(mapping.host_port.trim().to_string()),
                     }]),
                 );
             }
@@ -278,7 +314,12 @@ impl ContainerRepository for DockerClient {
         })))
     }
 
-    async fn create_exec(&self, id: &str, cmd: &[String]) -> DomainResult<ExecId> {
+    async fn create_exec(
+        &self,
+        id: &str,
+        cmd: &[String],
+        user: Option<&str>,
+    ) -> DomainResult<ExecId> {
         let docker = self.get_docker().await?;
         let r = docker
             .create_exec(
@@ -289,6 +330,7 @@ impl ContainerRepository for DockerClient {
                     attach_stdin: Some(true),
                     tty: Some(true),
                     cmd: Some(cmd.to_vec()),
+                    user: user.map(|value| value.to_string()),
                     ..Default::default()
                 },
             )
@@ -378,7 +420,6 @@ impl ContainerRepository for DockerClient {
         let opts = StatsOptions {
             stream: false,
             one_shot: true,
-            ..Default::default()
         };
         let stream = docker.stats(id, Some(opts));
 
@@ -450,7 +491,7 @@ impl ContainerRepository for DockerClient {
                         cpu_percent: (cpu * 100.0).round() / 100.0,
                         memory_usage: super::images::format_bytes(mem as i64),
                         memory_usage_bytes: mem,
-                        memory_limit_bytes: mem_l as u64,
+                        memory_limit_bytes: mem_l,
                         network_rx: super::images::format_bytes(nrx as i64),
                         network_tx: super::images::format_bytes(ntx as i64),
                         block_read: super::images::format_bytes(br as i64),
@@ -487,7 +528,8 @@ fn format_created(unix: i64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::validate_container_name;
+    use super::{validate_container_create_config, validate_container_name};
+    use domain::entities::{ContainerConfig, PortMapping};
 
     #[test]
     fn valid_names() {
@@ -563,5 +605,46 @@ mod tests {
         // Docker names are ASCII-only
         let result = validate_container_name("café");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn empty_image_rejected() {
+        let config = ContainerConfig::default();
+        let err = validate_container_create_config(&config).unwrap_err();
+        assert!(err.to_string().contains("image cannot be empty"));
+    }
+
+    #[test]
+    fn invalid_port_mapping_rejected() {
+        let config = ContainerConfig {
+            image: "nginx:latest".into(),
+            port_mappings: vec![PortMapping {
+                host_ip: String::new(),
+                host_port: "8080".into(),
+                container_port: String::new(),
+                protocol: "tcp".into(),
+            }],
+            ..Default::default()
+        };
+        let err = validate_container_create_config(&config).unwrap_err();
+        assert!(err.to_string().contains("Container port cannot be empty"));
+    }
+
+    #[test]
+    fn unsupported_protocol_rejected() {
+        let config = ContainerConfig {
+            image: "nginx:latest".into(),
+            port_mappings: vec![PortMapping {
+                host_ip: String::new(),
+                host_port: "8080".into(),
+                container_port: "80".into(),
+                protocol: "icmp".into(),
+            }],
+            ..Default::default()
+        };
+        let err = validate_container_create_config(&config).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("Unsupported port mapping protocol"));
     }
 }

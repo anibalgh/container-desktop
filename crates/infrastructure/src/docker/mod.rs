@@ -9,12 +9,13 @@ use bollard::Docker;
 use domain::entities::DockerEndpoint;
 use domain::{DomainError, DomainResult};
 use std::sync::Arc;
+use std::sync::RwLock;
 use tokio::sync::Mutex;
 
 /// High-level Docker client that wraps `bollard::Docker` and implements all repository traits.
 pub struct DockerClient {
     docker: Arc<Mutex<Option<Docker>>>,
-    endpoint: DockerEndpoint,
+    endpoint: Arc<RwLock<DockerEndpoint>>,
 }
 
 impl DockerClient {
@@ -22,21 +23,41 @@ impl DockerClient {
     pub fn new(endpoint: DockerEndpoint) -> Self {
         Self {
             docker: Arc::new(Mutex::new(None)),
-            endpoint,
+            endpoint: Arc::new(RwLock::new(endpoint)),
         }
     }
 
     /// Attempts to connect to the configured Docker endpoint.
     pub async fn connect(&self) -> DomainResult<()> {
+        let endpoint = self.endpoint();
+        let new_docker = connect_to_endpoint(&endpoint)?;
         let mut guard = self.docker.lock().await;
-        let new_docker = connect_to_endpoint(&self.endpoint)?;
         *guard = Some(new_docker);
         Ok(())
     }
 
+    /// Atomically attempts to swap the active endpoint and connected client.
+    ///
+    /// The new endpoint is only persisted in memory if the connection succeeds.
+    pub async fn reconfigure(&self, endpoint: DockerEndpoint) -> DomainResult<()> {
+        let new_docker = connect_to_endpoint(&endpoint)?;
+        {
+            let mut guard = self.docker.lock().await;
+            *guard = Some(new_docker);
+        }
+        *self
+            .endpoint
+            .write()
+            .expect("docker endpoint lock poisoned") = endpoint;
+        Ok(())
+    }
+
     /// Returns the configured endpoint.
-    pub fn endpoint(&self) -> &DockerEndpoint {
-        &self.endpoint
+    pub fn endpoint(&self) -> DockerEndpoint {
+        self.endpoint
+            .read()
+            .expect("docker endpoint lock poisoned")
+            .clone()
     }
 
     /// Convenience: locks and returns the bollard Docker client, or an error if not connected.
@@ -50,6 +71,7 @@ impl DockerClient {
 
 /// Connect to a Docker endpoint using the bollard library.
 fn connect_to_endpoint(endpoint: &DockerEndpoint) -> DomainResult<Docker> {
+    let timeout_secs = endpoint.timeout_secs.max(1);
     let docker = if endpoint.host_url.starts_with("tcp://") {
         if endpoint.tls_ca.is_some() {
             // TLS connection
@@ -57,18 +79,24 @@ fn connect_to_endpoint(endpoint: &DockerEndpoint) -> DomainResult<Docker> {
                 "TLS connections not yet implemented".to_string(),
             ));
         } else {
-            let url = endpoint.host_url.trim_start_matches("tcp://").to_string();
-            Docker::connect_with_http(&url, 120, bollard::API_DEFAULT_VERSION).map_err(|e| {
-                DomainError::ConnectionFailed(format!("HTTP connection failed: {e}"))
-            })?
+            Docker::connect_with_http(
+                &endpoint.host_url,
+                timeout_secs,
+                bollard::API_DEFAULT_VERSION,
+            )
+            .map_err(|e| DomainError::ConnectionFailed(format!("HTTP connection failed: {e}")))?
         }
     } else if endpoint.host_url.starts_with("npipe://") {
         #[cfg(target_os = "windows")]
         {
-            let pipe = endpoint.host_url.trim_start_matches("npipe://").to_string();
-            Docker::connect_with_named_pipe(&pipe, 120, bollard::API_DEFAULT_VERSION).map_err(
-                |e| DomainError::ConnectionFailed(format!("Named pipe connection failed: {e}")),
-            )?
+            Docker::connect_with_named_pipe(
+                &endpoint.host_url,
+                timeout_secs,
+                bollard::API_DEFAULT_VERSION,
+            )
+            .map_err(|e| {
+                DomainError::ConnectionFailed(format!("Named pipe connection failed: {e}"))
+            })?
         }
         #[cfg(not(target_os = "windows"))]
         {
@@ -77,9 +105,12 @@ fn connect_to_endpoint(endpoint: &DockerEndpoint) -> DomainResult<Docker> {
             ));
         }
     } else {
-        // Default: Unix socket
-        Docker::connect_with_local_defaults()
-            .map_err(|e| DomainError::ConnectionFailed(format!("Local connection failed: {e}")))?
+        Docker::connect_with_unix(
+            &endpoint.host_url,
+            timeout_secs,
+            bollard::API_DEFAULT_VERSION,
+        )
+        .map_err(|e| DomainError::ConnectionFailed(format!("Local connection failed: {e}")))?
     };
 
     Ok(docker)

@@ -2,6 +2,7 @@ use domain::entities::AppSettings;
 use domain::repository::SettingsRepository;
 use tauri::State;
 
+use super::connection::validate_docker_endpoint;
 use crate::AppState;
 
 #[tauri::command]
@@ -18,6 +19,15 @@ pub async fn save_settings(
     state: State<'_, AppState>,
     settings: AppSettings,
 ) -> Result<(), String> {
+    if state.docker_client.endpoint() != settings.endpoint {
+        validate_docker_endpoint(&settings.endpoint)?;
+        state
+            .docker_client
+            .reconfigure(settings.endpoint.clone())
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+
     state
         .config_manager
         .save_settings(&settings)

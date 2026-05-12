@@ -98,7 +98,8 @@ export default function App() {
   }, [bootstrap]);
 
   useEffect(() => {
-    if (!bootstrap) return;
+    const themeSetting = bootstrap?.settings.theme_setting;
+    if (!themeSetting) return;
 
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (event: MediaQueryListEvent) => {
@@ -192,11 +193,13 @@ function AppShell({
   const { t } = useI18n();
   const [activeScreen, setActiveScreen] = useState<Screen>("dashboard");
   const [dockerInfo, setDockerInfo] = useState<DockerInfo | null>(null);
+  const [dockerError, setDockerError] = useState<string | null>(null);
 
   const connected = dockerInfo !== null;
 
-  const handleConnectionChange = useCallback((info: DockerInfo | null) => {
+  const handleConnectionChange = useCallback((info: DockerInfo | null, error?: string) => {
     setDockerInfo(info);
+    setDockerError(info ? null : (error ?? null));
   }, []);
 
   function renderScreen() {
@@ -241,6 +244,7 @@ function AppShell({
           title={t.sidebar.screens[activeScreen]}
           dockerVersion={dockerInfo?.server_version}
           endpoint={dockerInfo?.endpoint}
+          connectionError={dockerError}
         />
       </div>
     </div>

@@ -6,6 +6,7 @@ use futures::Stream;
 use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
+#[derive(Default)]
 pub struct ComposeClient;
 
 impl ComposeClient {
@@ -83,8 +84,7 @@ fn validate_compose_path(file_path: &str) -> DomainResult<PathBuf> {
     const MAX_COMPOSE_FILE_SIZE: u64 = 10 * 1024 * 1024; // 10 MB
     if file_size > MAX_COMPOSE_FILE_SIZE {
         return Err(DomainError::Config(format!(
-            "Compose file too large ({} bytes, max {} bytes)",
-            file_size, MAX_COMPOSE_FILE_SIZE
+            "Compose file too large ({file_size} bytes, max {MAX_COMPOSE_FILE_SIZE} bytes)"
         )));
     }
 
@@ -182,9 +182,11 @@ async fn run_compose_command(
         .ok_or_else(|| DomainError::Compose("No stderr".to_string()))?;
 
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-    let tx2 = tx.clone();
+    let stdout_tx = tx.clone();
+    let stderr_tx = tx.clone();
+    let status_tx = tx.clone();
 
-    tokio::spawn(async move {
+    let stdout_handle = tokio::spawn(async move {
         use tokio::io::AsyncBufReadExt;
         let mut reader = tokio::io::BufReader::new(stdout);
         let mut line = String::new();
@@ -193,7 +195,7 @@ async fn run_compose_command(
             match reader.read_line(&mut line).await {
                 Ok(0) => break,
                 Ok(_) => {
-                    if tx
+                    if stdout_tx
                         .send(Ok(LogLine {
                             stream: LogStream::Stdout,
                             content: line.trim_end().to_string(),
@@ -205,14 +207,14 @@ async fn run_compose_command(
                     }
                 }
                 Err(e) => {
-                    let _ = tx.send(Err(DomainError::Compose(format!("Read error: {e}"))));
+                    let _ = stdout_tx.send(Err(DomainError::Compose(format!("Read error: {e}"))));
                     break;
                 }
             }
         }
     });
 
-    tokio::spawn(async move {
+    let stderr_handle = tokio::spawn(async move {
         use tokio::io::AsyncBufReadExt;
         let mut reader = tokio::io::BufReader::new(stderr);
         let mut line = String::new();
@@ -221,7 +223,7 @@ async fn run_compose_command(
             match reader.read_line(&mut line).await {
                 Ok(0) => break,
                 Ok(_) => {
-                    if tx2
+                    if stderr_tx
                         .send(Ok(LogLine {
                             stream: LogStream::Stderr,
                             content: line.trim_end().to_string(),
@@ -236,6 +238,31 @@ async fn run_compose_command(
             }
         }
     });
+
+    tokio::spawn(async move {
+        let _ = stdout_handle.await;
+        let _ = stderr_handle.await;
+
+        match child.wait().await {
+            Ok(status) if status.success() => {}
+            Ok(status) => {
+                let code = status
+                    .code()
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| "terminated by signal".to_string());
+                let _ = status_tx.send(Err(DomainError::Compose(format!(
+                    "compose command failed with exit status {code}"
+                ))));
+            }
+            Err(e) => {
+                let _ = status_tx.send(Err(DomainError::Compose(format!(
+                    "Failed to wait for compose process: {e}"
+                ))));
+            }
+        }
+    });
+
+    drop(tx);
 
     Ok(Box::new(
         tokio_stream::wrappers::UnboundedReceiverStream::new(rx),

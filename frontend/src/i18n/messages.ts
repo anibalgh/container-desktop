@@ -77,6 +77,19 @@ export interface Messages {
       manual: string;
     };
     dockerEndpointHint: string;
+    dockerEndpointRemoteHelpLink: string;
+    dockerEndpointRemoteHelp: {
+      title: string;
+      intro: string;
+      installLabel: string;
+      remoteCommandLabel: string;
+      localCommandLabel: string;
+      configStringLabel: string;
+      installCommands: string[];
+      remoteCommand: string;
+      localCommand: string;
+      configString: string;
+    };
     fontSizes: {
       normal: string;
       large: string;
@@ -210,6 +223,10 @@ export interface Messages {
       title: string;
       namePlaceholder: string;
     };
+    confirmRemove: {
+      title: string;
+      message: (name: string) => string;
+    };
   };
   networks: {
     title: string;
@@ -226,6 +243,10 @@ export interface Messages {
     createDialog: {
       title: string;
       namePlaceholder: string;
+    };
+    confirmRemove: {
+      title: string;
+      message: (name: string) => string;
     };
   };
 }
@@ -305,7 +326,25 @@ export const en: Messages = {
       auto: "Auto (OS)",
       manual: "Manual",
     },
-    dockerEndpointHint: "unix:///var/run/docker.sock, tcp://192.168.1.10:2375",
+    dockerEndpointHint: "Local example: unix:///var/run/docker.sock",
+    dockerEndpointRemoteHelpLink: "Need remote connection instructions?",
+    dockerEndpointRemoteHelp: {
+      title: "Connect to a remote Docker host",
+      intro: "Remote hosts are not connected directly. Create a local SSH tunnel to the remote Docker socket and then point the app to the forwarded local TCP endpoint.",
+      installLabel: "Install socat on the remote machine",
+      remoteCommandLabel: "Run this on the remote machine",
+      localCommandLabel: "Run this on your local machine",
+      configStringLabel: "Use this value in Container Desktop",
+      installCommands: [
+        "Ubuntu / Debian: sudo apt update && sudo apt install -y socat",
+        "Fedora: sudo dnf install -y socat",
+        "Arch: sudo pacman -S socat",
+        "macOS (Homebrew): brew install socat",
+      ],
+      remoteCommand: "socat TCP-LISTEN:2375,bind=127.0.0.1,fork UNIX-CONNECT:/var/run/docker.sock",
+      localCommand: "ssh -N -L 23750:127.0.0.1:2375 usuario@192.168.0.135",
+      configString: "tcp://127.0.0.1:23750",
+    },
     fontSizes: {
       normal: "Normal",
       large: "Large",
@@ -442,6 +481,10 @@ export const en: Messages = {
       title: "Create Volume",
       namePlaceholder: "Volume name",
     },
+    confirmRemove: {
+      title: "Remove Volume",
+      message: (name) => `Remove ${name}? This cannot be undone.`,
+    },
   },
   networks: {
     title: "Networks",
@@ -458,6 +501,10 @@ export const en: Messages = {
     createDialog: {
       title: "Create Network",
       namePlaceholder: "Network name",
+    },
+    confirmRemove: {
+      title: "Remove Network",
+      message: (name) => `Remove ${name}? This cannot be undone.`,
     },
   },
 };
@@ -537,7 +584,25 @@ export const es: Messages = {
       auto: "Automático (SO)",
       manual: "Manual",
     },
-    dockerEndpointHint: "unix:///var/run/docker.sock, tcp://192.168.1.10:2375",
+    dockerEndpointHint: "Ejemplo local: unix:///var/run/docker.sock",
+    dockerEndpointRemoteHelpLink: "¿Necesitas instrucciones para conexión remota?",
+    dockerEndpointRemoteHelp: {
+      title: "Conectarse a un Docker remoto",
+      intro: "Los hosts remotos no se conectan directamente. Crea primero un túnel SSH local hacia el socket Docker remoto y luego apunta la app al endpoint TCP local reenviado.",
+      installLabel: "Instala socat en la máquina remota",
+      remoteCommandLabel: "Ejecuta esto en la máquina remota",
+      localCommandLabel: "Ejecuta esto en tu máquina local",
+      configStringLabel: "Usa este valor en Container Desktop",
+      installCommands: [
+        "Ubuntu / Debian: sudo apt update && sudo apt install -y socat",
+        "Fedora: sudo dnf install -y socat",
+        "Arch: sudo pacman -S socat",
+        "macOS (Homebrew): brew install socat",
+      ],
+      remoteCommand: "socat TCP-LISTEN:2375,bind=127.0.0.1,fork UNIX-CONNECT:/var/run/docker.sock",
+      localCommand: "ssh -N -L 23750:127.0.0.1:2375 usuario@192.168.0.135",
+      configString: "tcp://127.0.0.1:23750",
+    },
     fontSizes: {
       normal: "Normal",
       large: "Grande",
@@ -675,6 +740,10 @@ export const es: Messages = {
       title: "Crear volumen",
       namePlaceholder: "Nombre del volumen",
     },
+    confirmRemove: {
+      title: "Eliminar volumen",
+      message: (name) => `¿Eliminar ${name}? Esta acción no se puede deshacer.`,
+    },
   },
   networks: {
     title: "Redes",
@@ -691,6 +760,10 @@ export const es: Messages = {
     createDialog: {
       title: "Crear red",
       namePlaceholder: "Nombre de la red",
+    },
+    confirmRemove: {
+      title: "Eliminar red",
+      message: (name) => `¿Eliminar ${name}? Esta acción no se puede deshacer.`,
     },
   },
 };

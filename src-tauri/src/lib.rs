@@ -9,16 +9,17 @@ use tokio::sync::Mutex;
 use domain::repository::{DockerConnectionRepository, SettingsRepository};
 use infrastructure::{ConfigManager, DockerClient};
 
+type ExecInputWriter = Arc<Mutex<Box<dyn tokio::io::AsyncWrite + Unpin + Send>>>;
+
 pub struct AppState {
     pub docker_client: Arc<DockerClient>,
     pub config_manager: Arc<ConfigManager>,
-    pub exec_inputs: Mutex<HashMap<String, Box<dyn tokio::io::AsyncWrite + Unpin + Send>>>,
+    pub exec_inputs: Arc<Mutex<HashMap<String, ExecInputWriter>>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let config_manager =
                 Arc::new(ConfigManager::new().expect("failed to create config manager"));
@@ -31,7 +32,7 @@ pub fn run() {
             let state = AppState {
                 docker_client: docker_client.clone(),
                 config_manager: config_manager.clone(),
-                exec_inputs: Mutex::new(HashMap::new()),
+                exec_inputs: Arc::new(Mutex::new(HashMap::new())),
             };
 
             app.manage(state);

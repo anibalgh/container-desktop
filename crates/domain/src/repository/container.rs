@@ -39,7 +39,12 @@ pub trait ContainerRepository: Send + Sync {
     ) -> DomainResult<Box<dyn Stream<Item = DomainResult<LogLine>> + Unpin + Send>>;
 
     /// Create an exec session inside a running container.
-    async fn create_exec(&self, id: &str, cmd: &[String]) -> DomainResult<ExecId>;
+    async fn create_exec(
+        &self,
+        id: &str,
+        cmd: &[String],
+        user: Option<&str>,
+    ) -> DomainResult<ExecId>;
 
     /// Start an exec session and return its output stream and writable input.
     /// Returns a tuple of (output_stream, input_writer).

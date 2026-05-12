@@ -26,12 +26,12 @@ impl DockerConnectionRepository for DockerClient {
             images: info.images.unwrap_or(0) as u64,
             os_type: info.operating_system.unwrap_or_default(),
             architecture: info.architecture.unwrap_or_default(),
-            endpoint: self.endpoint().host_url.clone(),
+            endpoint: self.endpoint().host_url,
         })
     }
 
     fn endpoint_url(&self) -> String {
-        self.endpoint().host_url.clone()
+        self.endpoint().host_url
     }
 
     async fn ping(&self) -> DomainResult<()> {

@@ -4,9 +4,10 @@ interface StatusBarProps {
   title: string;
   dockerVersion?: string;
   endpoint?: string;
+  connectionError?: string | null;
 }
 
-export function StatusBar({ title, dockerVersion, endpoint }: StatusBarProps) {
+export function StatusBar({ title, dockerVersion, endpoint, connectionError }: StatusBarProps) {
   const { t } = useI18n();
 
   return (
@@ -22,6 +23,9 @@ export function StatusBar({ title, dockerVersion, endpoint }: StatusBarProps) {
           {title}
         </span>
         {dockerVersion && <span>Docker {dockerVersion}</span>}
+        {!dockerVersion && connectionError && (
+          <span style={{ color: "var(--color-danger)" }}>{connectionError}</span>
+        )}
       </div>
       <div className="flex items-center gap-4">
         {endpoint && (
