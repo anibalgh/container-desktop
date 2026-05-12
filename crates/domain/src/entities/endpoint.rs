@@ -73,13 +73,19 @@ mod tests {
 
     #[test]
     fn connection_type_unix() {
-        let ep = DockerEndpoint { host_url: "unix:///var/run/docker.sock".into(), ..Default::default() };
+        let ep = DockerEndpoint {
+            host_url: "unix:///var/run/docker.sock".into(),
+            ..Default::default()
+        };
         assert_eq!(ep.connection_type(), "Local socket");
     }
 
     #[test]
     fn connection_type_tcp() {
-        let ep = DockerEndpoint { host_url: "tcp://192.168.1.1:2375".into(), ..Default::default() };
+        let ep = DockerEndpoint {
+            host_url: "tcp://192.168.1.1:2375".into(),
+            ..Default::default()
+        };
         assert_eq!(ep.connection_type(), "Remote (plain)");
     }
 
@@ -95,13 +101,19 @@ mod tests {
 
     #[test]
     fn connection_type_npipe() {
-        let ep = DockerEndpoint { host_url: "npipe:////./pipe/docker_engine".into(), ..Default::default() };
+        let ep = DockerEndpoint {
+            host_url: "npipe:////./pipe/docker_engine".into(),
+            ..Default::default()
+        };
         assert_eq!(ep.connection_type(), "Named pipe");
     }
 
     #[test]
     fn connection_type_unknown() {
-        let ep = DockerEndpoint { host_url: "ssh://host".into(), ..Default::default() };
+        let ep = DockerEndpoint {
+            host_url: "ssh://host".into(),
+            ..Default::default()
+        };
         assert_eq!(ep.connection_type(), "Unknown");
     }
 

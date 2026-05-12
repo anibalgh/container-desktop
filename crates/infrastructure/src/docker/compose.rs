@@ -55,9 +55,8 @@ fn validate_compose_path(file_path: &str) -> DomainResult<PathBuf> {
     }
 
     // Verify the file exists and is a regular file
-    let metadata = std::fs::metadata(path).map_err(|e| {
-        DomainError::Config(format!("Cannot access compose file: {e}"))
-    })?;
+    let metadata = std::fs::metadata(path)
+        .map_err(|e| DomainError::Config(format!("Cannot access compose file: {e}")))?;
 
     if !metadata.is_file() {
         return Err(DomainError::Config(
@@ -90,9 +89,9 @@ fn validate_compose_path(file_path: &str) -> DomainResult<PathBuf> {
     }
 
     // Canonicalize to resolve symlinks and relative paths
-    let canonical = path.canonicalize().map_err(|e| {
-        DomainError::Config(format!("Cannot resolve compose file path: {e}"))
-    })?;
+    let canonical = path
+        .canonicalize()
+        .map_err(|e| DomainError::Config(format!("Cannot resolve compose file path: {e}")))?;
 
     Ok(canonical)
 }
@@ -260,7 +259,10 @@ mod tests {
 
     #[test]
     fn valid_yml_path() {
-        let p = create_temp_yml("test_valid.yml", "version: '3'\nservices:\n  web:\n    image: nginx\n");
+        let p = create_temp_yml(
+            "test_valid.yml",
+            "version: '3'\nservices:\n  web:\n    image: nginx\n",
+        );
         let result = validate_compose_path(p.to_str().unwrap());
         p.parent().map(|_| fs::remove_file(&p).ok());
         assert!(result.is_ok());

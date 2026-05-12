@@ -14,6 +14,26 @@ A cross-platform desktop application for managing Docker containers, images, vol
 
 ---
 
+## AI Agent Bootstrap
+
+Before any agent analyzes, answers questions about, plans changes for, or edits this repository, it must run:
+
+```bash
+./scripts/load-project-context.sh
+```
+
+That command is the canonical bootstrap entry point for project context. It enumerates `.deepseek/skills/`, verifies every `SKILL.md`, and prints the skill files so the active agent can load them before doing any repository work.
+
+For automation or CI checks, use:
+
+```bash
+./scripts/load-project-context.sh --check
+```
+
+If the bootstrap fails, the agent should stop and surface the failure instead of continuing with partial context.
+
+---
+
 ## Features
 
 ### Docker Resource Management

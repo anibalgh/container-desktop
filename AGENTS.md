@@ -12,12 +12,26 @@ At the start of **every session in this repository**, before planning, coding, r
 
 This startup requirement applies **regardless of the model, tool, or AI agent implementation** being used.
 
+### Canonical bootstrap command
+
+Before doing anything else in this repository, run:
+
+```bash
+./scripts/load-project-context.sh
+```
+
+This script is the canonical bootstrap entry point. It enumerates every directory inside `.deepseek/skills/`, verifies each `SKILL.md` exists, and prints their contents so the active agent can read them immediately.
+
 ### Required startup behavior
 
-1. Enumerate every directory inside `.deepseek/skills/`.
-2. Read each `SKILL.md` file found there.
+1. Run `./scripts/load-project-context.sh`.
+2. Read each `SKILL.md` file printed by the script.
 3. Treat those files as active project guidance for the rest of the session.
-4. Re-check the directory if a task suggests skills may have been added or renamed during the session.
+4. Re-run the script if a task suggests skills may have been added or renamed during the session.
+
+### Hard failure policy
+
+If the bootstrap script fails, stop. Do **not** plan, edit files, review code, or answer repository-specific questions until the bootstrap succeeds or the failure is reported to the user.
 
 ### Skills currently expected in this repository
 

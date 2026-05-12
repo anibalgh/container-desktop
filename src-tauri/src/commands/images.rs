@@ -3,8 +3,8 @@ use domain::repository::ImageRepository;
 use futures::StreamExt;
 use tauri::{Emitter, State};
 
-use crate::AppState;
 use super::validate_docker_id;
+use crate::AppState;
 
 #[tauri::command]
 pub async fn list_images(state: State<'_, AppState>) -> Result<Vec<Image>, String> {

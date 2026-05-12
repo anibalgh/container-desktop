@@ -23,8 +23,8 @@ pub fn run() {
             let config_manager =
                 Arc::new(ConfigManager::new().expect("failed to create config manager"));
 
-            let settings = tauri::async_runtime::block_on(config_manager.load_settings())
-                .unwrap_or_default();
+            let settings =
+                tauri::async_runtime::block_on(config_manager.load_settings()).unwrap_or_default();
 
             let docker_client = Arc::new(DockerClient::new(settings.endpoint.clone()));
 
@@ -43,8 +43,12 @@ pub fn run() {
                     tracing::warn!("Initial Docker connection failed: {e}");
                 }
                 match dc.test_connection().await {
-                    Ok(info) => { let _ = handle.emit("docker-connected", info); }
-                    Err(e) => { let _ = handle.emit("docker-error", e.to_string()); }
+                    Ok(info) => {
+                        let _ = handle.emit("docker-connected", info);
+                    }
+                    Err(e) => {
+                        let _ = handle.emit("docker-error", e.to_string());
+                    }
                 }
             });
 

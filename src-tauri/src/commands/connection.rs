@@ -17,7 +17,9 @@ fn validate_endpoint_url(url: &str) -> Result<(), String> {
 
     // Only allow known Docker transport schemes
     let allowed_prefixes = ["unix://", "tcp://", "npipe://"];
-    let has_allowed_prefix = allowed_prefixes.iter().any(|prefix| url.starts_with(prefix));
+    let has_allowed_prefix = allowed_prefixes
+        .iter()
+        .any(|prefix| url.starts_with(prefix));
 
     if !has_allowed_prefix {
         return Err(format!(

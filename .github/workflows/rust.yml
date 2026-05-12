@@ -15,6 +15,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v5
+    - name: Validate project context bootstrap
+      run: ./scripts/load-project-context.sh --check
     - name: Install Linux system dependencies
       run: |
         sudo apt-get update

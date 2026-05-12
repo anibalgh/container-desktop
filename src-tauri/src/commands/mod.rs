@@ -35,7 +35,11 @@ mod tests {
     #[test]
     fn valid_docker_ids() {
         assert!(validate_docker_id("abc123", "Container").is_ok());
-        assert!(validate_docker_id("sha256:abcd1234ef567890abcd1234ef567890abcd1234ef567890abcd1234ef567890", "Image").is_ok());
+        assert!(validate_docker_id(
+            "sha256:abcd1234ef567890abcd1234ef567890abcd1234ef567890abcd1234ef567890",
+            "Image"
+        )
+        .is_ok());
         assert!(validate_docker_id("a", "Network").is_ok());
         // 12-char short ID
         assert!(validate_docker_id("a1b2c3d4e5f6", "Container").is_ok());

@@ -3,39 +3,59 @@ use domain::repository::ContainerRepository;
 use futures::StreamExt;
 use tauri::{Emitter, State};
 
-use crate::AppState;
 use super::validate_docker_id;
+use crate::AppState;
 
 #[tauri::command]
 pub async fn list_containers(
     state: State<'_, AppState>,
     all: bool,
 ) -> Result<Vec<Container>, String> {
-    state.docker_client.list_containers(all).await.map_err(|e| e.to_string())
+    state
+        .docker_client
+        .list_containers(all)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn start_container(state: State<'_, AppState>, id: String) -> Result<(), String> {
     validate_docker_id(&id, "Container")?;
-    state.docker_client.start_container(&id).await.map_err(|e| e.to_string())
+    state
+        .docker_client
+        .start_container(&id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn stop_container(state: State<'_, AppState>, id: String) -> Result<(), String> {
     validate_docker_id(&id, "Container")?;
-    state.docker_client.stop_container(&id).await.map_err(|e| e.to_string())
+    state
+        .docker_client
+        .stop_container(&id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn restart_container(state: State<'_, AppState>, id: String) -> Result<(), String> {
     validate_docker_id(&id, "Container")?;
-    state.docker_client.restart_container(&id).await.map_err(|e| e.to_string())
+    state
+        .docker_client
+        .restart_container(&id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn remove_container(state: State<'_, AppState>, id: String) -> Result<(), String> {
     validate_docker_id(&id, "Container")?;
-    state.docker_client.remove_container(&id).await.map_err(|e| e.to_string())
+    state
+        .docker_client
+        .remove_container(&id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -61,7 +81,9 @@ pub async fn container_logs(
         while let Some(result) = stream.next().await {
             match result {
                 Ok(log_line) => {
-                    if app_clone.emit("container-log-line", &log_line).is_err() { break; }
+                    if app_clone.emit("container-log-line", &log_line).is_err() {
+                        break;
+                    }
                 }
                 Err(_) => break,
             }
@@ -72,12 +94,13 @@ pub async fn container_logs(
 }
 
 #[tauri::command]
-pub async fn inspect_container(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<String, String> {
+pub async fn inspect_container(state: State<'_, AppState>, id: String) -> Result<String, String> {
     validate_docker_id(&id, "Container")?;
-    state.docker_client.inspect_container(&id).await.map_err(|e| e.to_string())
+    state
+        .docker_client
+        .inspect_container(&id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -86,7 +109,11 @@ pub async fn container_stats(
     id: String,
 ) -> Result<domain::entities::ContainerStats, String> {
     validate_docker_id(&id, "Container")?;
-    let mut stream = state.docker_client.container_stats(&id).await.map_err(|e| e.to_string())?;
+    let mut stream = state
+        .docker_client
+        .container_stats(&id)
+        .await
+        .map_err(|e| e.to_string())?;
     match stream.next().await {
         Some(Ok(stats)) => Ok(stats),
         Some(Err(e)) => Err(e.to_string()),
@@ -113,7 +140,11 @@ pub async fn exec_create(
             return Err("Exec command argument too long".to_string());
         }
     }
-    let exec_id = state.docker_client.create_exec(&id, &cmd).await.map_err(|e| e.to_string())?;
+    let exec_id = state
+        .docker_client
+        .create_exec(&id, &cmd)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(exec_id.0)
 }
 
@@ -140,7 +171,9 @@ pub async fn exec_start(
             match result {
                 Ok(out) => {
                     let text = String::from_utf8_lossy(&out.data).to_string();
-                    if app_clone.emit("exec-output", &text).is_err() { break; }
+                    if app_clone.emit("exec-output", &text).is_err() {
+                        break;
+                    }
                 }
                 Err(_) => break,
             }
@@ -184,5 +217,9 @@ pub async fn exec_resize(
 ) -> Result<(), String> {
     validate_docker_id(&exec_id_str, "Exec")?;
     let exec_id = ExecId(exec_id_str);
-    state.docker_client.resize_exec(&exec_id, width, height).await.map_err(|e| e.to_string())
+    state
+        .docker_client
+        .resize_exec(&exec_id, width, height)
+        .await
+        .map_err(|e| e.to_string())
 }

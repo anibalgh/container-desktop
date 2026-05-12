@@ -251,8 +251,12 @@ impl ContainerRepository for DockerClient {
             None => "all".to_string(),
         };
         b = b.tail(&tail_str);
-        if let Some(s) = since { b = b.since(s); }
-        if let Some(u) = until { b = b.until(u); }
+        if let Some(s) = since {
+            b = b.since(s);
+        }
+        if let Some(u) = until {
+            b = b.until(u);
+        }
         let stream = docker.logs(id, Some(b.build()));
 
         Ok(Box::new(stream.map(|r| {
@@ -538,7 +542,10 @@ mod tests {
 
         let result = validate_container_name("web/app");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Invalid character"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid character"));
 
         let result = validate_container_name("db@host");
         assert!(result.is_err());
