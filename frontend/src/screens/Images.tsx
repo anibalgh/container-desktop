@@ -42,12 +42,29 @@ export function ImagesScreen() {
 
   const { sorted, col, dir, toggle } = useSort(images, "repo_name");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try { setImages(await listImages()); } catch (e) { setError(String(e)); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+
+    listImages()
+      .then((data) => {
+        if (!cancelled) setImages(data);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function doPull() {
     if (!pullName.trim()) return;
@@ -74,7 +91,7 @@ export function ImagesScreen() {
         <div className="flex items-center gap-3">
           <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>{images.length} image{images.length !== 1 ? "s" : ""}</span>
           <button onClick={() => setShowPull(true)} className="px-3 py-1.5 text-xs rounded-md text-white" style={{ backgroundColor: "var(--color-accent)" }}>Pull</button>
-          <button onClick={load} className="px-3 py-1.5 text-xs rounded-md border" style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}>Refresh</button>
+          <button onClick={() => { void load(); }} className="px-3 py-1.5 text-xs rounded-md border" style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}>Refresh</button>
         </div>
       </div>
       {error && <div className="mb-3 px-3 py-2 text-sm rounded-md" style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "var(--color-danger)" }}>{error}<button onClick={() => setError(null)} className="ml-2 underline">Dismiss</button></div>}

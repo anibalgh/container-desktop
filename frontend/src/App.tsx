@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Sidebar, type Screen } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { Dashboard } from "./screens/Dashboard";
@@ -60,20 +60,24 @@ export default function App() {
 
   const connected = dockerInfo !== null;
 
-  function handleThemeChange(variant: ThemeVariant, _auto: boolean) {
+  const handleConnectionChange = useCallback((info: DockerInfo | null) => {
+    setDockerInfo(info);
+  }, []);
+
+  function handleThemeChange(variant: ThemeVariant) {
     setThemeVariant(variant);
   }
 
   function renderScreen() {
     switch (activeScreen) {
-      case "Dashboard": return <Dashboard connected={connected} onConnectionChange={(info) => setDockerInfo(info)} />;
+      case "Dashboard": return <Dashboard connected={connected} onConnectionChange={handleConnectionChange} />;
       case "Containers": return <ContainersScreen />;
       case "Images": return <ImagesScreen />;
       case "Volumes": return <VolumesScreen />;
       case "Networks": return <NetworksScreen />;
       case "Compose": return <ComposeScreen />;
       case "Settings": return <SettingsScreen onThemeChange={handleThemeChange} />;
-      default: return <Dashboard connected={connected} onConnectionChange={(info) => setDockerInfo(info)} />;
+      default: return <Dashboard connected={connected} onConnectionChange={handleConnectionChange} />;
     }
   }
 

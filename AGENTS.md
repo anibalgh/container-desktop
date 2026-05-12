@@ -2,7 +2,36 @@
 
 A cross-platform desktop application for managing Docker resources, built with **Tauri v2** + **React/TypeScript/Tailwind CSS**.
 
+## Project skills bootstrap
+
+At the start of **every session in this repository**, before planning, coding, reviewing, or answering questions, the active AI agent must load and internalize the reusable project skills stored under:
+
+```text
+.deepseek/skills/*/SKILL.md
+```
+
+This startup requirement applies **regardless of the model, tool, or AI agent implementation** being used.
+
+### Required startup behavior
+
+1. Enumerate every directory inside `.deepseek/skills/`.
+2. Read each `SKILL.md` file found there.
+3. Treat those files as active project guidance for the rest of the session.
+4. Re-check the directory if a task suggests skills may have been added or renamed during the session.
+
+### Skills currently expected in this repository
+
+- `.deepseek/skills/docker/SKILL.md`
+- `.deepseek/skills/docker-compose/SKILL.md`
+- `.deepseek/skills/git/SKILL.md`
+- `.deepseek/skills/github/SKILL.md`
+- `.deepseek/skills/rust/SKILL.md`
+
+If a direct user instruction conflicts with one of these skills, follow the user instruction for that task and otherwise keep the skills as the default project guidance.
+
 ## Architecture
+
+This project uses **Clean Architecture** as a mandatory design rule. All new code, refactors, and bug fixes must preserve and reinforce that architecture instead of bypassing it with cross-layer shortcuts.
 
 ```
 frontend/          ← React + TypeScript + Tailwind (SPA in WebView)
@@ -12,6 +41,14 @@ crates/infrastructure/ ← Docker API (bollard), config persistence
 ```
 
 Dependency direction: `domain ← infrastructure ← src-tauri`
+
+### Clean Architecture rules
+
+- Keep business entities and repository traits in `crates/domain`.
+- Keep Docker, persistence, and other external integrations in `crates/infrastructure`.
+- Keep Tauri commands and application wiring in `src-tauri`.
+- Depend only inward: outer layers may use inner layers, but inner layers must never depend on outer layers.
+- Do not move domain logic into UI, Tauri command handlers, or infrastructure adapters.
 
 | Layer | Tech | Purpose |
 |-------|------|---------|
@@ -23,7 +60,7 @@ Dependency direction: `domain ← infrastructure ← src-tauri`
 ## Quick Start
 
 ```bash
-# Prerequisites: Docker, Node.js 20+, Rust 1.80+
+# Prerequisites: Docker, Node.js 24 LTS, Rust 1.80+
 # System deps (Linux): libwebkit2gtk-4.1-dev, libsoup-3.0-dev, libjavascriptcoregtk-4.1-dev
 
 # Install frontend deps

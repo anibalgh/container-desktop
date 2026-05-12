@@ -74,7 +74,7 @@ Dependency direction: `domain ← infrastructure ← src-tauri`
 
 ## Prerequisites
 
-- **Node.js** 20+ and **npm**
+- **Node.js** 24 LTS and **npm**
 - **Rust** 1.88+ ([rustup.rs](https://rustup.rs))
 - **Docker Engine** running locally (or a remote daemon)
 - **docker-compose** binary (optional, for Compose features)

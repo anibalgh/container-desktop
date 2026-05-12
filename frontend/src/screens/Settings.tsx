@@ -26,7 +26,7 @@ function applyFont(size: number, family: string | undefined) {
   }
 }
 
-interface SettingsProps { onThemeChange: (variant: ThemeVariant, auto: boolean) => void; }
+interface SettingsProps { onThemeChange: (variant: ThemeVariant) => void; }
 
 export function SettingsScreen({ onThemeChange }: SettingsProps) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -53,14 +53,14 @@ export function SettingsScreen({ onThemeChange }: SettingsProps) {
     if (!settings) return;
     setSettings({ ...settings, theme_setting: mode === "Auto" ? "Auto" : { Manual: "Dark" } });
     if (mode === "Auto") {
-      onThemeChange(window.matchMedia("(prefers-color-scheme: dark)").matches ? "Dark" : "Light", true);
+      onThemeChange(window.matchMedia("(prefers-color-scheme: dark)").matches ? "Dark" : "Light");
     }
   }
 
   function updateThemeVariant(variant: ThemeVariant) {
     if (!settings) return;
     setSettings({ ...settings, theme_setting: { Manual: variant } });
-    onThemeChange(variant, false);
+    onThemeChange(variant);
   }
 
   if (loading) return <div className="flex items-center justify-center h-full"><div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} /></div>;

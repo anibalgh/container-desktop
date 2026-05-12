@@ -37,7 +37,7 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
       unlisten1.then((f) => f());
       unlisten2.then((f) => f());
     };
-  }, []);
+  }, [onConnectionChange]);
 
   if (loading) {
     return (
