@@ -12,8 +12,15 @@ impl ComposeClient {
     pub fn new() -> Self {
         Self
     }
-    fn compose_bin() -> &'static str {
-        "docker-compose"
+
+    /// Returns the Docker Compose command to use.
+    ///
+    /// Uses `docker compose` (plugin, available since Docker 20.10+)
+    /// which is the modern standard across all platforms.
+    fn make_compose_command() -> Command {
+        let mut cmd = Command::new("docker");
+        cmd.arg("compose");
+        cmd
     }
 }
 
@@ -108,7 +115,7 @@ impl ComposeRepository for ComposeClient {
         let canonical = validate_compose_path(file_path)?;
         let file_str = canonical.to_string_lossy();
         let dir = canonical.parent().unwrap_or_else(|| Path::new("."));
-        let output = Command::new(Self::compose_bin())
+        let output = Self::make_compose_command()
             .args(["-f", &file_str, "down"])
             .current_dir(dir)
             .output()
@@ -135,7 +142,7 @@ impl ComposeRepository for ComposeClient {
         let canonical = validate_compose_path(file_path)?;
         let file_str = canonical.to_string_lossy();
         let dir = canonical.parent().unwrap_or_else(|| Path::new("."));
-        let output = Command::new(Self::compose_bin())
+        let output = Self::make_compose_command()
             .args(["-f", &file_str, "ps", "--no-trunc"])
             .current_dir(dir)
             .output()
@@ -153,7 +160,7 @@ async fn run_compose_command(
     let dir = canonical_path.parent().unwrap_or_else(|| Path::new("."));
     let file_str = canonical_path.to_string_lossy();
 
-    let mut cmd = Command::new(ComposeClient::compose_bin());
+    let mut cmd = ComposeClient::make_compose_command();
     cmd.arg("-f").arg(file_str.as_ref());
     for a in args {
         cmd.arg(a);
@@ -298,7 +305,10 @@ mod tests {
 
     #[test]
     fn nonexistent_file_rejected() {
-        let result = validate_compose_path("/tmp/nonexistent_compose_file_test.yml");
+        let path = std::env::temp_dir().join("nonexistent_compose_file_test.yml");
+        // Ensure it doesn't exist
+        std::fs::remove_file(&path).ok();
+        let result = validate_compose_path(path.to_str().unwrap());
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.to_string().contains("Cannot access"));

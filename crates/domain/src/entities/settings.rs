@@ -280,8 +280,13 @@ mod tests {
 
     #[test]
     fn app_settings_serde_default_font() {
-        let json = r#"{"theme_setting":"Auto","endpoint":{"host_url":"unix:///var/run/docker.sock","tls_ca":null,"tls_cert":null,"tls_key":null,"timeout_secs":30},"window_width":1024,"window_height":768}"#;
-        let settings: AppSettings = serde_json::from_str(json).unwrap();
+        // Build JSON dynamically so the endpoint URL matches the current platform default
+        let default_endpoint = DockerEndpoint::default();
+        let json = format!(
+            r#"{{"theme_setting":"Auto","endpoint":{{"host_url":"{}","tls_ca":null,"tls_cert":null,"tls_key":null,"timeout_secs":30}},"window_width":1024,"window_height":768}}"#,
+            default_endpoint.host_url
+        );
+        let settings: AppSettings = serde_json::from_str(&json).unwrap();
         assert_eq!(settings.font_family, "Monospace");
         assert_eq!(settings.font_size, 14);
     }
