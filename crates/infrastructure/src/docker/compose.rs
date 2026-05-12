@@ -235,3 +235,115 @@ async fn run_compose_command(
         tokio_stream::wrappers::UnboundedReceiverStream::new(rx),
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::validate_compose_path;
+    use std::fs;
+    use std::io::Write;
+
+    fn create_temp_yml(name: &str, content: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir();
+        let path = dir.join(name);
+        let mut f = fs::File::create(&path).expect("Failed to create temp file");
+        f.write_all(content.as_bytes())
+            .expect("Failed to write temp file");
+        path
+    }
+
+    #[test]
+    fn valid_yml_path() {
+        let p = create_temp_yml("test_valid.yml", "version: '3'\nservices:\n  web:\n    image: nginx\n");
+        let result = validate_compose_path(p.to_str().unwrap());
+        p.parent().map(|_| fs::remove_file(&p).ok());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn valid_yaml_extension() {
+        let p = create_temp_yml("test_valid.yaml", "version: '3'\n");
+        let result = validate_compose_path(p.to_str().unwrap());
+        fs::remove_file(&p).ok();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn empty_path_rejected() {
+        let result = validate_compose_path("");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("cannot be empty"));
+    }
+
+    #[test]
+    fn null_byte_rejected() {
+        let result = validate_compose_path("file.yml\0hidden");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("null byte"));
+    }
+
+    #[test]
+    fn path_traversal_rejected() {
+        let result = validate_compose_path("../etc/passwd");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("Path traversal"));
+
+        let result = validate_compose_path("sub/../../../root.yml");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("Path traversal"));
+    }
+
+    #[test]
+    fn nonexistent_file_rejected() {
+        let result = validate_compose_path("/tmp/nonexistent_compose_file_test.yml");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("Cannot access"));
+    }
+
+    #[test]
+    fn wrong_extension_rejected() {
+        let p = create_temp_yml("test.txt", "not a compose file");
+        let result = validate_compose_path(p.to_str().unwrap());
+        fs::remove_file(&p).ok();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains(".yml or .yaml"));
+    }
+
+    #[test]
+    fn no_extension_rejected() {
+        let p = create_temp_yml("testfile", "no extension");
+        let result = validate_compose_path(p.to_str().unwrap());
+        fs::remove_file(&p).ok();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains(".yml or .yaml"));
+    }
+
+    #[test]
+    fn directory_not_file_rejected() {
+        let dir = std::env::temp_dir().join("compose_test_dir.yml");
+        fs::create_dir_all(&dir).ok();
+        let result = validate_compose_path(dir.to_str().unwrap());
+        fs::remove_dir_all(&dir).ok();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("not a regular file"));
+    }
+
+    #[test]
+    fn yml_extension_case_insensitive() {
+        let p = create_temp_yml("test_case.YML", "version: '3'\n");
+        let result = validate_compose_path(p.to_str().unwrap());
+        fs::remove_file(&p).ok();
+        assert!(result.is_ok());
+        let p = create_temp_yml("test_case.Yaml", "version: '3'\n");
+        let result = validate_compose_path(p.to_str().unwrap());
+        fs::remove_file(&p).ok();
+        assert!(result.is_ok());
+    }
+}

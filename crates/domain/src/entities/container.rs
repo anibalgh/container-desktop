@@ -128,6 +128,96 @@ impl Default for ContainerConfig {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn container_state_display() {
+        assert_eq!(ContainerState::Running.to_string(), "running");
+        assert_eq!(ContainerState::Exited.to_string(), "exited");
+        assert_eq!(ContainerState::Paused.to_string(), "paused");
+        assert_eq!(ContainerState::Restarting.to_string(), "restarting");
+        assert_eq!(ContainerState::Created.to_string(), "created");
+        assert_eq!(ContainerState::Removing.to_string(), "removing");
+        assert_eq!(ContainerState::Dead.to_string(), "dead");
+    }
+
+    #[test]
+    fn port_mapping_display() {
+        let pm = PortMapping {
+            host_ip: "0.0.0.0".into(),
+            host_port: "8080".into(),
+            container_port: "80".into(),
+            protocol: "tcp".into(),
+        };
+        assert_eq!(pm.to_string(), "0.0.0.0:8080->80/tcp");
+    }
+
+    #[test]
+    fn container_config_default() {
+        let config = ContainerConfig::default();
+        assert!(config.image.is_empty());
+        assert!(config.name.is_none());
+        assert!(config.command.is_none());
+        assert!(config.env.is_empty());
+        assert!(config.port_mappings.is_empty());
+        assert!(config.volumes.is_empty());
+        assert!(config.detached);
+        assert!(!config.auto_remove);
+    }
+
+    #[test]
+    fn container_serialization_roundtrip() {
+        let container = Container {
+            id: "abc123".into(),
+            name: "web-server".into(),
+            image: "nginx:latest".into(),
+            status: "Up 3 hours".into(),
+            state: ContainerState::Running,
+            ports: vec![PortMapping {
+                host_ip: "0.0.0.0".into(),
+                host_port: "8080".into(),
+                container_port: "80".into(),
+                protocol: "tcp".into(),
+            }],
+            mounts: vec![],
+            created: "2026-01-01 00:00:00".into(),
+            command: "nginx -g daemon off;".into(),
+        };
+        let json = serde_json::to_string(&container).unwrap();
+        let decoded: Container = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.id, "abc123");
+        assert_eq!(decoded.name, "web-server");
+        assert_eq!(decoded.state, ContainerState::Running);
+        assert_eq!(decoded.ports.len(), 1);
+        assert_eq!(decoded.ports[0].host_port, "8080");
+    }
+
+    #[test]
+    fn container_state_serialization() {
+        let state = ContainerState::Running;
+        let json = serde_json::to_string(&state).unwrap();
+        assert!(json.contains("Running"));
+        let decoded: ContainerState = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, ContainerState::Running);
+    }
+
+    #[test]
+    fn log_stream_serialization() {
+        let line = LogLine {
+            stream: LogStream::Stdout,
+            content: "Hello world".into(),
+            timestamp: Some("2026-01-01T00:00:00Z".into()),
+        };
+        let json = serde_json::to_string(&line).unwrap();
+        let decoded: LogLine = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.content, "Hello world");
+        assert_eq!(decoded.stream, LogStream::Stdout);
+        assert_eq!(decoded.timestamp.unwrap(), "2026-01-01T00:00:00Z");
+    }
+}
+
 /// A line of container log output.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogLine {

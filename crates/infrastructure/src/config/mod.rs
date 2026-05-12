@@ -32,6 +32,13 @@ impl ConfigManager {
         &self.config_path
     }
 
+    /// Creates a `ConfigManager` pointed at a specific file path.
+    /// Only available in tests to isolate from the real user config directory.
+    #[cfg(test)]
+    pub(crate) fn with_path(path: PathBuf) -> Self {
+        Self { config_path: path }
+    }
+
     /// Synchronously reads font family and font size from the settings file.
     ///
     /// Used at startup (before the async runtime is available) to configure
@@ -87,5 +94,107 @@ impl SettingsRepository for ConfigManager {
             .map_err(|e| DomainError::Config(format!("Cannot write settings file: {e}")))?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use domain::entities::{AppSettings, ThemeSetting};
+
+    fn test_dir() -> PathBuf {
+        std::env::temp_dir().join("container_desktop_test")
+    }
+
+    #[tokio::test]
+    async fn save_and_load_settings() {
+        let dir = test_dir();
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("save_load_test.json");
+        std::fs::remove_file(&path).ok();
+
+        let mgr = ConfigManager::with_path(path.clone());
+
+        let mut settings = AppSettings::default();
+        settings.window_width = 1920;
+        settings.window_height = 1080;
+        settings.font_size = 18;
+
+        mgr.save_settings(&settings).await.unwrap();
+        let loaded = mgr.load_settings().await.unwrap();
+
+        assert_eq!(loaded.window_width, 1920);
+        assert_eq!(loaded.window_height, 1080);
+        assert_eq!(loaded.font_size, 18);
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[tokio::test]
+    async fn load_returns_defaults_when_file_missing() {
+        let dir = test_dir();
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("load_defaults_test.json");
+        std::fs::remove_file(&path).ok();
+
+        let mgr = ConfigManager::with_path(path.clone());
+        let loaded = mgr.load_settings().await.unwrap();
+
+        assert_eq!(loaded.window_width, 1280);
+        assert_eq!(loaded.window_height, 800);
+        assert_eq!(loaded.font_family, "Monospace");
+        assert_eq!(loaded.font_size, 14);
+        assert_eq!(loaded.theme_setting, ThemeSetting::Auto);
+
+        // It should also create the file with defaults
+        assert!(path.exists());
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[tokio::test]
+    async fn load_font_settings_sync_with_valid_file() {
+        let dir = test_dir();
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("font_sync_test.json");
+        std::fs::remove_file(&path).ok();
+
+        let mgr = ConfigManager::with_path(path.clone());
+
+        let mut settings = AppSettings::default();
+        settings.font_family = "Fira Code".into();
+        settings.font_size = 16;
+        mgr.save_settings(&settings).await.unwrap();
+
+        let (family, size) = mgr.load_font_settings_sync();
+        assert_eq!(family, "Fira Code");
+        assert_eq!(size, 16);
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn load_font_settings_sync_missing_file_returns_defaults() {
+        let path = test_dir().join("nonexistent_font_settings.json");
+        std::fs::remove_file(&path).ok();
+
+        let mgr = ConfigManager::with_path(path);
+        let (family, size) = mgr.load_font_settings_sync();
+        assert_eq!(family, "Monospace");
+        assert_eq!(size, 14);
+    }
+
+    #[test]
+    fn load_font_settings_sync_invalid_json_returns_defaults() {
+        let dir = test_dir();
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("invalid_json_test.json");
+        std::fs::write(&path, "not valid json").unwrap();
+
+        let mgr = ConfigManager::with_path(path.clone());
+        let (family, size) = mgr.load_font_settings_sync();
+        assert_eq!(family, "Monospace");
+        assert_eq!(size, 14);
+
+        std::fs::remove_file(&path).ok();
     }
 }

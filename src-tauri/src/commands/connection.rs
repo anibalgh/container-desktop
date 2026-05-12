@@ -38,6 +38,65 @@ fn validate_endpoint_url(url: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::validate_endpoint_url;
+
+    #[test]
+    fn valid_endpoint_urls() {
+        assert!(validate_endpoint_url("unix:///var/run/docker.sock").is_ok());
+        assert!(validate_endpoint_url("tcp://192.168.1.10:2376").is_ok());
+        assert!(validate_endpoint_url("npipe:////./pipe/docker_engine").is_ok());
+        assert!(validate_endpoint_url("tcp://localhost:2375").is_ok());
+    }
+
+    #[test]
+    fn empty_url_rejected() {
+        let err = validate_endpoint_url("").unwrap_err();
+        assert!(err.contains("cannot be empty"));
+    }
+
+    #[test]
+    fn null_byte_rejected() {
+        let err = validate_endpoint_url("unix://\0/path").unwrap_err();
+        assert!(err.contains("null byte"));
+    }
+
+    #[test]
+    fn unknown_scheme_rejected() {
+        let err = validate_endpoint_url("http://example.com").unwrap_err();
+        assert!(err.contains("Invalid endpoint scheme"));
+
+        let err = validate_endpoint_url("ssh://host").unwrap_err();
+        assert!(err.contains("Invalid endpoint scheme"));
+
+        let err = validate_endpoint_url("fd://socket").unwrap_err();
+        assert!(err.contains("Invalid endpoint scheme"));
+    }
+
+    #[test]
+    fn no_scheme_rejected() {
+        let err = validate_endpoint_url("/var/run/docker.sock").unwrap_err();
+        assert!(err.contains("Invalid endpoint scheme"));
+        let err = validate_endpoint_url("just-a-string").unwrap_err();
+        assert!(err.contains("Invalid endpoint scheme"));
+    }
+
+    #[test]
+    fn too_long_url_rejected() {
+        let long_url = format!("unix://{}", "a".repeat(4100));
+        let err = validate_endpoint_url(&long_url).unwrap_err();
+        assert!(err.contains("too long"));
+        assert!(err.contains("4096"));
+    }
+
+    #[test]
+    fn max_length_accepted() {
+        let max_url = format!("tcp://{}", "b".repeat(4090));
+        assert!(validate_endpoint_url(&max_url).is_ok());
+    }
+}
+
 #[tauri::command]
 pub async fn connect(
     _state: State<'_, AppState>,

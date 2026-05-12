@@ -36,6 +36,37 @@ cd .. && cargo tauri dev
 cargo tauri build
 ```
 
+## Testing
+
+```bash
+# Run all tests (71 tests across 3 crates)
+cargo test
+
+# Run tests for a specific crate
+cargo test -p domain
+cargo test -p infrastructure
+cargo test -p container-desktop-app
+
+# Run tests with output
+cargo test -- --nocapture
+
+# Run a subset by name
+cargo test -- validate_container_name
+cargo test -p domain -- theme_variant
+```
+
+| Crate | Tests | Focus |
+|-------|-------|-------|
+| `domain` | 34 | Entities (serialization, Display, defaults), `DomainError` formatting, `ThemeVariant` (is_dark, all variants) |
+| `infrastructure` | 23 | Input validators (`validate_compose_path`, `validate_container_name`), `ConfigManager` (save/load settings, font sync) |
+| `src-tauri` | 14 | Input validators (`validate_docker_id`, `validate_endpoint_url`) |
+
+### Test isolation
+
+- `ConfigManager::with_path()` (test-only constructor) accepts a custom path so tests don't touch the real user config directory.
+- Compose path tests create temporary `.yml` files in `/tmp` and clean them up.
+- Each `ConfigManager` test uses a uniquely-named JSON file to avoid parallel-test collisions.
+
 ## Build Commands
 
 ```bash
@@ -170,3 +201,34 @@ sudo apt-get install -y \
   libgtk-3-dev \
   libayatana-appindicator3-dev
 ```
+
+## Security
+
+### Input validation layers
+
+All user-supplied input from the frontend is validated at two levels:
+
+| Layer | Location | Validators |
+|-------|----------|------------|
+| **Tauri commands** | `src-tauri/src/commands/` | `validate_docker_id()` — length ≤1024, non-empty, no null bytes. `validate_endpoint_url()` — scheme allowlist (unix://, tcp://, npipe://), length ≤4096. Exec args sanitized. |
+| **Infrastructure** | `crates/infrastructure/src/docker/` | `validate_compose_path()` — no `..` traversal, .yml/.yaml only, max 10 MB, canonicalized. `validate_container_name()` — Docker naming rules, max 255 chars. |
+
+### Content Security Policy
+
+The WebView CSP is restricted to same-origin resources:
+
+```
+default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
+img-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost;
+font-src 'self' data:;
+```
+
+Configured in `src-tauri/tauri.conf.json` under `app.security.csp`.
+
+### Defense in depth
+
+- **Path traversal**: compose file paths reject `..`, canonicalize before use, and validate extensions.
+- **DoS prevention**: all IDs and URLs have maximum length limits; compose files capped at 10 MB; exec input capped at 64 KB.
+- **Null byte injection**: all string inputs are checked for embedded `\0`.
+- **Scheme restriction**: Docker endpoint URLs must use an allowed transport scheme.
+- **Container names**: enforced against Docker's `[a-zA-Z0-9_.-]+` pattern.

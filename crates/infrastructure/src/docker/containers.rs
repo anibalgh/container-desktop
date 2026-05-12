@@ -480,3 +480,81 @@ fn format_created(unix: i64) -> String {
         .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
         .unwrap_or_else(|| "Unknown".to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::validate_container_name;
+
+    #[test]
+    fn valid_names() {
+        assert!(validate_container_name("nginx").is_ok());
+        assert!(validate_container_name("my-app").is_ok());
+        assert!(validate_container_name("web_server.prod").is_ok());
+        assert!(validate_container_name("_internal").is_ok());
+        assert!(validate_container_name(".hidden").is_ok());
+        assert!(validate_container_name("a").is_ok());
+        assert!(validate_container_name("A_b-C.D").is_ok());
+        assert!(validate_container_name("abc123").is_ok());
+    }
+
+    #[test]
+    fn empty_name_accepted() {
+        // Empty name is allowed — Docker auto-generates one
+        assert!(validate_container_name("").is_ok());
+    }
+
+    #[test]
+    fn null_byte_rejected() {
+        let result = validate_container_name("web\0hidden");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("null byte"));
+    }
+
+    #[test]
+    fn too_long_rejected() {
+        let long = "a".repeat(256);
+        assert!(validate_container_name(&long).is_err());
+        let ok = "a".repeat(255);
+        assert!(validate_container_name(&ok).is_ok());
+    }
+
+    #[test]
+    fn invalid_first_character() {
+        let result = validate_container_name("-badstart");
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("must start with"));
+
+        let result = validate_container_name("$invalid");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn invalid_characters() {
+        let result = validate_container_name("my container");
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Invalid character"));
+
+        let result = validate_container_name("web/app");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid character"));
+
+        let result = validate_container_name("db@host");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn position_reported() {
+        let result = validate_container_name("abc def");
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("position 3"));
+    }
+
+    #[test]
+    fn unicode_rejected() {
+        // Docker names are ASCII-only
+        let result = validate_container_name("café");
+        assert!(result.is_err());
+    }
+}
