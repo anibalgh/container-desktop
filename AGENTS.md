@@ -232,3 +232,65 @@ Configured in `src-tauri/tauri.conf.json` under `app.security.csp`.
 - **Null byte injection**: all string inputs are checked for embedded `\0`.
 - **Scheme restriction**: Docker endpoint URLs must use an allowed transport scheme.
 - **Container names**: enforced against Docker's `[a-zA-Z0-9_.-]+` pattern.
+
+## Platform Support
+
+Container Desktop targets **Linux**, **macOS**, and **Windows** via Tauri v2.
+
+### Startup defaults
+
+`DockerEndpoint::default()` selects the platform-appropriate local transport:
+
+- **Linux / macOS**: `unix:///var/run/docker.sock`
+- **Windows**: `npipe:////./pipe/docker_engine`
+
+### Docker transport backends
+
+`DockerClient::connect()` in `crates/infrastructure/src/docker/mod.rs` uses `#[cfg(target_os)]`:
+
+| Transport | Supported on | Backend |
+|-----------|-------------|---------|
+| `unix://`  | Linux, macOS | `Docker::connect_with_local_defaults()` (bollard) |
+| `tcp://`   | All | `Docker::connect_with_http()` (plain HTTP, no TLS yet) |
+| `npipe://` | Windows only | `Docker::connect_with_named_pipe()` |
+
+Non-Windows platforms that attempt `npipe://` get a clear error: "Named pipe connections are only supported on Windows".
+
+### Font enumeration
+
+`list_fonts()` in `src-tauri/src/commands/settings.rs` uses `#[cfg]` per platform:
+
+- **Linux**: `fc-list :spacing=mono family` (fontconfig)
+- **macOS**: `system_profiler SPFontsDataType` → parses "Family:" lines
+- **Windows**: returns a curated list of 10 common monospace fonts (Cascadia Code, Consolas, Courier New, Fira Code, Hack, JetBrains Mono, Lucida Console, Monospace, Source Code Pro)
+
+Fallback: if enumeration yields zero results, all platforms return at least `["Monospace"]`.
+
+### Docker Compose
+
+`ComposeClient` uses `docker compose` (subcommand, Docker 20.10+). This is the modern standard
+across all platforms. The deprecated `docker-compose` standalone binary is not used; if needed,
+change `make_compose_command()` in `crates/infrastructure/src/docker/compose.rs`.
+
+### Config directory
+
+`ConfigManager` uses the `directories` crate (`ProjectDirs`):
+
+- **Linux**: `~/.config/container-desktop/settings.json`
+- **macOS**: `~/Library/Application Support/com.container-desktop.ContainerDesktop/settings.json`
+- **Windows**: `%APPDATA%\container-desktop\ContainerDesktop\settings.json`
+
+### Known limitations
+
+| Limitation | Platform | Detail |
+|-----------|----------|--------|
+| Font list limited | Windows, macOS | Windows returns a static list (no DirectWrite binding). macOS parses `system_profiler` output which lists all fonts, not just monospace. |
+| No TLS support | All | `tcp://` connections are plain HTTP only. TLS (HTTPS with certs) is not yet implemented. |
+| Named pipes | Linux, macOS | `npipe://` transport errors out — only valid on Windows. |
+| `docker compose` required | All | The legacy `docker-compose` binary is not used. Ensure Docker 20.10+ is installed. |
+
+### System requirements
+
+- **Linux**: Docker Engine, WebKit2GTK 4.1, libsoup 3.0, libjavascriptcoregtk 4.1, GTK 3
+- **macOS**: Docker Desktop, Xcode Command Line Tools
+- **Windows**: Docker Desktop, Visual C++ Redistributable
