@@ -131,11 +131,67 @@ impl Default for ThemeSetting {
     }
 }
 
+/// Supported application languages.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Language {
+    En,
+    Es,
+}
+
+impl Language {
+    /// Returns the display name for this language.
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Language::En => "English",
+            Language::Es => "Spanish",
+        }
+    }
+
+    /// All supported languages.
+    pub fn all() -> &'static [Language] {
+        &[Language::En, Language::Es]
+    }
+}
+
+impl Default for Language {
+    fn default() -> Self {
+        Self::En
+    }
+}
+
+impl std::fmt::Display for Language {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.display_name())
+    }
+}
+
+/// Language mode setting: auto-detect from the OS or manual override.
+///
+/// `Auto` intentionally persists as the default so the app keeps following the
+/// system locale on every startup until the user explicitly chooses a language.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum LanguageSetting {
+    /// Automatically follow the OS language preference.
+    Auto,
+    /// Manually pick a specific language.
+    Manual(Language),
+}
+
+impl Default for LanguageSetting {
+    fn default() -> Self {
+        Self::Auto
+    }
+}
+
 /// Application settings persisted to user config directory.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     /// The theme mode configuration.
     pub theme_setting: ThemeSetting,
+    /// The language mode configuration.
+    #[serde(default)]
+    pub language_setting: LanguageSetting,
     /// The Docker endpoint configuration.
     pub endpoint: DockerEndpoint,
     /// Window width in pixels.
@@ -163,6 +219,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             theme_setting: ThemeSetting::default(),
+            language_setting: LanguageSetting::default(),
             endpoint: DockerEndpoint::default(),
             window_width: 1280,
             window_height: 800,
@@ -185,7 +242,10 @@ mod tests {
         assert_eq!(ThemeVariant::Dracula.display_name(), "Dracula");
         assert_eq!(ThemeVariant::Nord.display_name(), "Nord");
         assert_eq!(ThemeVariant::TokyoNight.display_name(), "Tokyo Night");
-        assert_eq!(ThemeVariant::CatppuccinMocha.display_name(), "Catppuccin Mocha");
+        assert_eq!(
+            ThemeVariant::CatppuccinMocha.display_name(),
+            "Catppuccin Mocha"
+        );
         assert_eq!(ThemeVariant::Ferra.display_name(), "Ferra");
     }
 
@@ -254,12 +314,59 @@ mod tests {
         assert_eq!(decoded, ThemeSetting::Manual(ThemeVariant::Dracula));
     }
 
+    // ── Language tests ──
+
+    #[test]
+    fn language_display_names() {
+        assert_eq!(Language::En.display_name(), "English");
+        assert_eq!(Language::Es.display_name(), "Spanish");
+    }
+
+    #[test]
+    fn language_display_trait() {
+        assert_eq!(format!("{}", Language::En), "English");
+        assert_eq!(format!("{}", Language::Es), "Spanish");
+    }
+
+    #[test]
+    fn language_all_count() {
+        assert_eq!(Language::all().len(), 2);
+    }
+
+    #[test]
+    fn language_serialization() {
+        let json = serde_json::to_string(&Language::Es).unwrap();
+        assert_eq!(json, "\"es\"");
+        let decoded: Language = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, Language::Es);
+    }
+
+    #[test]
+    fn language_setting_default_is_auto() {
+        assert_eq!(LanguageSetting::default(), LanguageSetting::Auto);
+    }
+
+    #[test]
+    fn language_setting_serialization() {
+        let auto = LanguageSetting::Auto;
+        let json = serde_json::to_string(&auto).unwrap();
+        assert!(json.contains("Auto"));
+        let decoded: LanguageSetting = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, LanguageSetting::Auto);
+
+        let manual = LanguageSetting::Manual(Language::Es);
+        let json = serde_json::to_string(&manual).unwrap();
+        let decoded: LanguageSetting = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, LanguageSetting::Manual(Language::Es));
+    }
+
     // ── AppSettings tests ──
 
     #[test]
     fn app_settings_defaults() {
         let settings = AppSettings::default();
         assert_eq!(settings.theme_setting, ThemeSetting::Auto);
+        assert_eq!(settings.language_setting, LanguageSetting::Auto);
         assert_eq!(settings.window_width, 1280);
         assert_eq!(settings.window_height, 800);
         assert_eq!(settings.font_family, "Monospace");
@@ -276,6 +383,7 @@ mod tests {
         assert_eq!(decoded.font_family, "Monospace");
         assert_eq!(decoded.font_size, 14);
         assert_eq!(decoded.theme_setting, ThemeSetting::Auto);
+        assert_eq!(decoded.language_setting, LanguageSetting::Auto);
     }
 
     #[test]
@@ -289,5 +397,6 @@ mod tests {
         let settings: AppSettings = serde_json::from_str(&json).unwrap();
         assert_eq!(settings.font_family, "Monospace");
         assert_eq!(settings.font_size, 14);
+        assert_eq!(settings.language_setting, LanguageSetting::Auto);
     }
 }

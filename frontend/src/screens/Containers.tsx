@@ -5,6 +5,7 @@ import {
   containerLogs, onContainerLogLine, containerStats,
   execCreate, execStart, execInput, onExecOutput,
 } from "../lib/tauri";
+import { useI18n } from "../i18n";
 
 type SortDir = "asc" | "desc";
 type TabId = "logs" | "terminal" | "stats";
@@ -35,6 +36,7 @@ function SortTh({ col, currentCol, dir, label, onClick }: {
 }
 
 export function ContainersScreen() {
+  const { t } = useI18n();
   const [containers, setContainers] = useState<Container[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -186,41 +188,41 @@ export function ContainersScreen() {
     <div className="p-3 h-full flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-center justify-between shrink-0">
-        <h1 className="text-lg font-semibold" style={{ color: "var(--color-text)" }}>Containers</h1>
+        <h1 className="text-lg font-semibold" style={{ color: "var(--color-text)" }}>{t.containers.title}</h1>
         <div className="flex items-center gap-2">
-          <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>{containers.length} container{containers.length !== 1 ? "s" : ""}</span>
-          <button onClick={load} className="px-2 py-1 text-xs rounded-md border" style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}>Refresh</button>
+          <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>{t.containers.count(containers.length)}</span>
+          <button onClick={load} className="px-2 py-1 text-xs rounded-md border" style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}>{t.common.refresh}</button>
         </div>
       </div>
-      {error && <div className="px-3 py-1.5 text-xs rounded-md shrink-0" style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "var(--color-danger)" }}>{error} <button onClick={() => setError(null)} className="ml-2 underline">Dismiss</button></div>}
+      {error && <div className="px-3 py-1.5 text-xs rounded-md shrink-0" style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "var(--color-danger)" }}>{error} <button onClick={() => setError(null)} className="ml-2 underline">{t.common.dismiss}</button></div>}
 
       {/* Table */}
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex-1 min-h-[200px] overflow-auto rounded-lg border" style={{ borderColor: "var(--color-border)" }}>
           <table className="w-full text-sm">
             <thead><tr style={{ backgroundColor: "var(--color-surface-secondary)" }}>
-              <SortTh col="name" currentCol={col as string} dir={dir} label="Name" onClick={() => toggle("name")} />
-              <SortTh col="image" currentCol={col as string} dir={dir} label="Image" onClick={() => toggle("image")} />
-              <SortTh col="state" currentCol={col as string} dir={dir} label="State" onClick={() => toggle("state")} />
-              <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>Ports</th>
-              <SortTh col="created" currentCol={col as string} dir={dir} label="Created" onClick={() => toggle("created")} />
-              <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>Actions</th>
+              <SortTh col="name" currentCol={col as string} dir={dir} label={t.containers.columns.name} onClick={() => toggle("name")} />
+              <SortTh col="image" currentCol={col as string} dir={dir} label={t.containers.columns.image} onClick={() => toggle("image")} />
+              <SortTh col="state" currentCol={col as string} dir={dir} label={t.containers.columns.state} onClick={() => toggle("state")} />
+              <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>{t.containers.columns.ports}</th>
+              <SortTh col="created" currentCol={col as string} dir={dir} label={t.containers.columns.created} onClick={() => toggle("created")} />
+              <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>{t.containers.columns.actions}</th>
             </tr></thead>
             <tbody>
-              {sorted.length === 0 ? <tr><td colSpan={6} className="px-4 py-12 text-center" style={{ color: "var(--color-text-muted)" }}>No containers found.</td></tr> :
+              {sorted.length === 0 ? <tr><td colSpan={6} className="px-4 py-12 text-center" style={{ color: "var(--color-text-muted)" }}>{t.containers.empty}</td></tr> :
                 sorted.map((c) => (
                   <tr key={c.id} onClick={() => setSelected(c.id === selected ? null : c.id)}
                     className="border-t cursor-pointer hover:opacity-80"
                     style={{ borderColor: "var(--color-border)", backgroundColor: selected === c.id ? "color-mix(in srgb, var(--color-accent) 10%, transparent)" : "transparent" }}>
                     <td className="px-4 py-2"><div className="font-medium" style={{ color: "var(--color-text)" }}>{c.name}</div><div className="text-xs font-mono" style={{ color: "var(--color-text-muted)" }}>{shortId(c.id)}</div></td>
                     <td className="px-4 py-2"><span className="font-mono text-xs">{c.image}</span></td>
-                    <td className="px-4 py-2"><span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: `${stateColor(c.state)}20`, color: stateColor(c.state) }}><span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: stateColor(c.state) }} />{c.state}</span><div className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>{c.status}</div></td>
-                    <td className="px-4 py-2"><div className="font-mono text-xs">{c.ports.length > 0 ? c.ports.map((p, i) => <div key={i}>{p.host_ip}:{p.host_port}→{p.container_port}</div>) : <span style={{ color: "var(--color-text-muted)" }}>—</span>}</div></td>
+                    <td className="px-4 py-2"><span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: `${stateColor(c.state)}20`, color: stateColor(c.state) }}><span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: stateColor(c.state) }} />{t.containers.states[c.state]}</span><div className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>{c.status}</div></td>
+                    <td className="px-4 py-2"><div className="font-mono text-xs">{c.ports.length > 0 ? c.ports.map((p, i) => <div key={i}>{p.host_ip}:{p.host_port}→{p.container_port}</div>) : <span style={{ color: "var(--color-text-muted)" }}>{t.common.notAvailable}</span>}</div></td>
                     <td className="px-4 py-2"><span className="text-xs">{c.created}</span></td>
                     <td className="px-4 py-2"><div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      {(c.state === "Exited" || c.state === "Created") && <Btn label="Start" color="var(--color-success)" loading={actionLoading === c.id} onClick={() => doAction(c.id, c.name, "start")} />}
-                      {c.state === "Running" && <><Btn label="Stop" color="var(--color-warning)" loading={actionLoading === c.id} onClick={() => doAction(c.id, c.name, "stop")} /><Btn label="Restart" color="var(--color-accent)" loading={actionLoading === c.id} onClick={() => doAction(c.id, c.name, "restart")} /></>}
-                      {c.state !== "Removing" && <Btn label="Remove" color="var(--color-danger)" loading={false} onClick={() => setConfirmRemove(c.id)} />}
+                      {(c.state === "Exited" || c.state === "Created") && <Btn label={t.containers.actions.start} color="var(--color-success)" loading={actionLoading === c.id} onClick={() => doAction(c.id, c.name, "start")} />}
+                      {c.state === "Running" && <><Btn label={t.containers.actions.stop} color="var(--color-warning)" loading={actionLoading === c.id} onClick={() => doAction(c.id, c.name, "stop")} /><Btn label={t.containers.actions.restart} color="var(--color-accent)" loading={actionLoading === c.id} onClick={() => doAction(c.id, c.name, "restart")} /></>}
+                      {c.state !== "Removing" && <Btn label={t.containers.actions.remove} color="var(--color-danger)" loading={false} onClick={() => setConfirmRemove(c.id)} />}
                     </div></td>
                   </tr>
                 ))}
@@ -238,7 +240,7 @@ export function ContainersScreen() {
               <button key={t} onClick={() => setTab(t)}
                 className="px-3 py-2 text-xs font-medium capitalize border-b-2 transition-colors"
                 style={{ borderColor: tab === t ? "var(--color-accent)" : "transparent", color: tab === t ? "var(--color-accent)" : "var(--color-text-muted)" }}>
-                {selContainer?.name ?? shortId(selected ?? "")} — {t}
+                {selContainer?.name ?? shortId(selected ?? "")} — {tabLabel(t)}
               </button>
             ))}
           </div>
@@ -247,14 +249,14 @@ export function ContainersScreen() {
           {tab === "logs" && (
             <div className="p-2 flex flex-col" style={{ maxHeight: "calc(40vh - 40px)" }}>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <input value={logTail} onChange={(e) => setLogTail(e.target.value.replace(/\D/g, ""))} placeholder="Tail N" className="w-16 px-2 py-1 text-xs rounded border" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }} />
+                <input value={logTail} onChange={(e) => setLogTail(e.target.value.replace(/\D/g, ""))} placeholder={t.containers.logs.tailPlaceholder} className="w-16 px-2 py-1 text-xs rounded border" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }} />
                 <input type="datetime-local" value={logSince} onChange={(e) => setLogSince(e.target.value)} className="px-2 py-1 text-xs rounded border" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }} />
                 <input type="datetime-local" value={logUntil} onChange={(e) => setLogUntil(e.target.value)} className="px-2 py-1 text-xs rounded border" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }} />
-                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input type="checkbox" checked={logFollow} onChange={(e) => setLogFollow(e.target.checked)} /> Follow</label>
-                <button onClick={loadLogs} disabled={logLoading} className="px-2 py-1 text-xs rounded text-white" style={{ backgroundColor: "var(--color-accent)" }}>{logLoading ? "Loading..." : "Load"}</button>
+                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input type="checkbox" checked={logFollow} onChange={(e) => setLogFollow(e.target.checked)} /> {t.containers.logs.follow}</label>
+                <button onClick={loadLogs} disabled={logLoading} className="px-2 py-1 text-xs rounded text-white" style={{ backgroundColor: "var(--color-accent)" }}>{logLoading ? t.common.loading : t.common.load}</button>
               </div>
               <div className="flex-1 overflow-auto font-mono text-xs rounded p-2 whitespace-pre-wrap" style={{ backgroundColor: "#0d1117", color: "#c9d1d9", minHeight: "60px" }}>
-                {logLines || <span style={{ color: "#8b949e" }}>No log output yet. Click Load.</span>}
+                {logLines || <span style={{ color: "#8b949e" }}>{t.containers.logs.empty}</span>}
               </div>
             </div>
           )}
@@ -266,21 +268,21 @@ export function ContainersScreen() {
                 <select value={termShell} onChange={(e) => setTermShell(e.target.value)} className="px-2 py-1 text-xs rounded border" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }}>
                   {["sh", "bash", "zsh", "ash", "dash"].map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input type="checkbox" checked={termRoot} onChange={(e) => setTermRoot(e.target.checked)} /> root</label>
-                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input type="radio" name="mode" checked={termMode === "interactive"} onChange={() => setTermMode("interactive")} /> Interactive</label>
-                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input type="radio" name="mode" checked={termMode === "command"} onChange={() => setTermMode("command")} /> Command</label>
-                {termMode === "command" && <input value={termCmd} onChange={(e) => setTermCmd(e.target.value)} placeholder="ls -la /" className="px-2 py-1 text-xs rounded border flex-1" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }} />}
-                <button onClick={connectTerminal} className="px-2 py-1 text-xs rounded text-white" style={{ backgroundColor: "var(--color-accent)" }}>Connect</button>
+                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input type="checkbox" checked={termRoot} onChange={(e) => setTermRoot(e.target.checked)} /> {t.containers.terminal.root}</label>
+                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input type="radio" name="mode" checked={termMode === "interactive"} onChange={() => setTermMode("interactive")} /> {t.containers.terminal.interactive}</label>
+                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input type="radio" name="mode" checked={termMode === "command"} onChange={() => setTermMode("command")} /> {t.containers.terminal.command}</label>
+                {termMode === "command" && <input value={termCmd} onChange={(e) => setTermCmd(e.target.value)} placeholder={t.containers.terminal.commandPlaceholder} className="px-2 py-1 text-xs rounded border flex-1" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }} />}
+                <button onClick={connectTerminal} className="px-2 py-1 text-xs rounded text-white" style={{ backgroundColor: "var(--color-accent)" }}>{t.common.connect}</button>
               </div>
               <div className="flex-1 overflow-auto font-mono text-xs rounded p-2 whitespace-pre-wrap" style={{ backgroundColor: "#0d1117", color: "#c9d1d9", minHeight: "60px" }}>
-                {termOutput || <span style={{ color: "#8b949e" }}>Click Connect to start terminal.</span>}
+                {termOutput || <span style={{ color: "#8b949e" }}>{t.containers.terminal.empty}</span>}
               </div>
               {termConnected && (
                 <div className="flex items-center gap-2 mt-1">
                   <span style={{ color: "var(--color-accent)" }}>$</span>
                   <input value={termInput} onChange={(e) => setTermInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") sendTermInput(); }}
-                    placeholder="Type a command..."
+                    placeholder={t.containers.terminal.inputPlaceholder}
                     className="flex-1 px-2 py-1 text-xs rounded border bg-transparent"
                     style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }} />
                 </div>
@@ -292,20 +294,20 @@ export function ContainersScreen() {
           {tab === "stats" && (
             <div className="p-3" style={{ maxHeight: "calc(40vh - 40px)", overflow: "auto" }}>
               <div className="flex items-center gap-2 mb-3">
-                <button onClick={loadStats} disabled={statsLoading} className="px-2 py-1 text-xs rounded text-white" style={{ backgroundColor: "var(--color-accent)" }}>{statsLoading ? "Loading..." : "Refresh Stats"}</button>
+                <button onClick={loadStats} disabled={statsLoading} className="px-2 py-1 text-xs rounded text-white" style={{ backgroundColor: "var(--color-accent)" }}>{statsLoading ? t.common.loading : t.containers.stats.refresh}</button>
               </div>
               {stats && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <StatCard label="CPU" value={`${stats.cpu_percent}%`} color="var(--color-accent)" />
-                  <StatCard label="Memory" value={stats.memory_usage} color="var(--color-success)" />
-                  <StatCard label="Net RX" value={stats.network_rx} color="var(--color-warning)" />
-                  <StatCard label="Net TX" value={stats.network_tx} color="var(--color-warning)" />
-                  <StatCard label="Block Read" value={stats.block_read} color="var(--color-text-muted)" />
-                  <StatCard label="Block Write" value={stats.block_write} color="var(--color-text-muted)" />
-                  <StatCard label="PIDs" value={String(stats.pids)} color="var(--color-text-muted)" />
+                  <StatCard label={t.containers.stats.cpu} value={`${stats.cpu_percent}%`} color="var(--color-accent)" />
+                  <StatCard label={t.containers.stats.memory} value={stats.memory_usage} color="var(--color-success)" />
+                  <StatCard label={t.containers.stats.netRx} value={stats.network_rx} color="var(--color-warning)" />
+                  <StatCard label={t.containers.stats.netTx} value={stats.network_tx} color="var(--color-warning)" />
+                  <StatCard label={t.containers.stats.blockRead} value={stats.block_read} color="var(--color-text-muted)" />
+                  <StatCard label={t.containers.stats.blockWrite} value={stats.block_write} color="var(--color-text-muted)" />
+                  <StatCard label={t.containers.stats.pids} value={String(stats.pids)} color="var(--color-text-muted)" />
                 </div>
               )}
-              {!stats && !statsLoading && <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Click Refresh to load stats.</p>}
+              {!stats && !statsLoading && <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>{t.containers.stats.empty}</p>}
             </div>
           )}
         </div>
@@ -315,17 +317,30 @@ export function ContainersScreen() {
       {confirmRemove && (
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
           <div className="rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl" style={{ backgroundColor: "var(--color-surface)" }}>
-            <h3 className="text-lg font-semibold mb-2" style={{ color: "var(--color-text)" }}>Remove Container</h3>
-            <p className="text-sm mb-4" style={{ color: "var(--color-text-muted)" }}>Remove <span className="font-medium" style={{ color: "var(--color-text)" }}>{containers.find((c) => c.id === confirmRemove)?.name ?? shortId(confirmRemove)}</span>? This cannot be undone.</p>
+            <h3 className="text-lg font-semibold mb-2" style={{ color: "var(--color-text)" }}>{t.containers.confirmRemove.title}</h3>
+            <p className="text-sm mb-4" style={{ color: "var(--color-text-muted)" }}>{t.containers.confirmRemove.message(containers.find((c) => c.id === confirmRemove)?.name ?? shortId(confirmRemove))}</p>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setConfirmRemove(null)} className="px-4 py-2 text-sm rounded-md border" style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}>Cancel</button>
-              <button onClick={() => doRemove(confirmRemove)} className="px-4 py-2 text-sm rounded-md text-white" style={{ backgroundColor: "var(--color-danger)" }}>Remove</button>
+              <button onClick={() => setConfirmRemove(null)} className="px-4 py-2 text-sm rounded-md border" style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}>{t.common.cancel}</button>
+              <button onClick={() => doRemove(confirmRemove)} className="px-4 py-2 text-sm rounded-md text-white" style={{ backgroundColor: "var(--color-danger)" }}>{t.common.remove}</button>
             </div>
           </div>
         </div>
       )}
     </div>
   );
+
+  function tabLabel(tabId: TabId): string {
+    switch (tabId) {
+      case "logs":
+        return t.containers.tabs.logs;
+      case "terminal":
+        return t.containers.tabs.terminal;
+      case "stats":
+        return t.containers.tabs.stats;
+      default:
+        return tabId;
+    }
+  }
 }
 
 function Btn({ label, color, loading, onClick }: { label: string; color: string; loading: boolean; onClick: () => void }) {

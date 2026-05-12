@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { DockerInfo } from "../lib/types";
 import { testConnection, onDockerConnected, onDockerError } from "../lib/tauri";
+import { useI18n } from "../i18n";
 
 interface DashboardProps {
   connected: boolean;
@@ -8,6 +9,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
+  const { t } = useI18n();
   const [info, setInfo] = useState<DockerInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -46,7 +48,7 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
           <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
             style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} />
           <span style={{ color: "var(--color-text-muted)" }}>
-            Connecting to Docker...
+            {t.dashboard.connecting}
           </span>
         </div>
       </div>
@@ -60,13 +62,13 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
           <div className="text-6xl mb-4">🐳</div>
           <h1 className="text-2xl font-semibold mb-2"
             style={{ color: "var(--color-text)" }}>
-            Container Desktop
+            {t.dashboard.productName}
           </h1>
           <p style={{ color: "var(--color-text-muted)" }}>
-            Docker daemon is not reachable.
+            {t.dashboard.daemonUnreachable}
           </p>
           <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>
-            Start Docker or configure the endpoint in Settings.
+            {t.dashboard.daemonHelp}
           </p>
         </div>
       </div>
@@ -77,29 +79,29 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
     <div className="p-8">
       <h1 className="text-2xl font-semibold mb-6"
         style={{ color: "var(--color-text)" }}>
-        Dashboard
+        {t.dashboard.title}
       </h1>
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
-          label="Containers Running"
+          label={t.dashboard.stats.containersRunning}
           value={info?.containers_running ?? 0}
           color="var(--color-success)"
         />
         <StatCard
-          label="Containers Stopped"
+          label={t.dashboard.stats.containersStopped}
           value={(info?.containers_stopped ?? 0) + (info?.containers_paused ?? 0)}
           color="var(--color-warning)"
         />
         <StatCard
-          label="Images"
+          label={t.dashboard.stats.images}
           value={info?.images ?? 0}
           color="var(--color-accent)"
         />
         <StatCard
-          label="Architecture"
-          value={info?.architecture ?? "—"}
+          label={t.dashboard.stats.architecture}
+          value={info?.architecture ?? t.common.notAvailable}
           color="var(--color-text-muted)"
           isString
         />
@@ -109,13 +111,13 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
       <div className="rounded-lg border p-6"
         style={{ backgroundColor: "var(--color-surface-secondary)" }}>
         <h2 className="text-lg font-medium mb-4" style={{ color: "var(--color-text)" }}>
-          System Information
+          {t.dashboard.systemInformation}
         </h2>
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <InfoRow label="Docker Version" value={info?.server_version} />
-          <InfoRow label="OS" value={info?.os_type} />
-          <InfoRow label="Architecture" value={info?.architecture} />
-          <InfoRow label="Endpoint" value={info?.endpoint} mono />
+          <InfoRow label={t.dashboard.dockerVersion} value={info?.server_version} />
+          <InfoRow label={t.dashboard.os} value={info?.os_type} />
+          <InfoRow label={t.dashboard.architecture} value={info?.architecture} />
+          <InfoRow label={t.dashboard.endpoint} value={info?.endpoint} mono />
         </div>
       </div>
     </div>
@@ -168,8 +170,13 @@ function InfoRow({
         className={`ml-2 ${mono ? "font-mono text-xs" : ""}`}
         style={{ color: "var(--color-text)" }}
       >
-        {value ?? "—"}
+        {value ?? <DashboardFallback />}
       </span>
     </div>
   );
+}
+
+function DashboardFallback() {
+  const { t } = useI18n();
+  return <>{t.common.notAvailable}</>;
 }

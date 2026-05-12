@@ -1,3 +1,5 @@
+import { useI18n } from "../i18n";
+
 const STACK = [
   "Tauri v2",
   "Rust",
@@ -8,15 +10,17 @@ const STACK = [
 ];
 
 export function AboutScreen() {
+  const { t } = useI18n();
+
   return (
     <div className="p-6 h-full overflow-auto">
       <div className="max-w-3xl space-y-6">
         <header className="space-y-2">
           <h1 className="text-2xl font-semibold" style={{ color: "var(--color-text)" }}>
-            Acerca de
+            {t.about.title}
           </h1>
           <p className="text-sm leading-6" style={{ color: "var(--color-text-muted)" }}>
-            Una vista breve sobre la intencion, la base tecnica y la filosofia de construccion de Container Desktop.
+            {t.about.subtitle}
           </p>
         </header>
 
@@ -28,19 +32,16 @@ export function AboutScreen() {
           }}
         >
           <p className="leading-7" style={{ color: "var(--color-text)" }}>
-            Container Desktop es una aplicacion de escritorio multiplataforma disenada para administrar
-            contenedores, imagenes, volumenes, redes y flujos de trabajo con Docker desde una interfaz
-            moderna, clara y eficiente. Su objetivo es ofrecer una experiencia visual comoda para tareas
-            que normalmente requieren consola, sin perder potencia ni control.
+            {t.about.description}
           </p>
           <div className="grid gap-4 md:grid-cols-2">
             <InfoBlock
-              title="Licencia"
-              content="Distribuida bajo licencia MIT."
+              title={t.about.licenseTitle}
+              content={t.about.licenseContent}
             />
             <InfoBlock
-              title="Tecnologia"
-              content="Construida con una base moderna y robusta para escritorio, frontend y acceso nativo a Docker."
+              title={t.about.technologyTitle}
+              content={t.about.technologyContent}
             />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -69,20 +70,16 @@ export function AboutScreen() {
           }}
         >
           <h2 className="text-sm font-semibold uppercase tracking-[0.2em] mb-3" style={{ color: "var(--color-text-muted)" }}>
-            Vibe coding
+            {t.about.vibeCodingTitle}
           </h2>
           <p className="leading-7" style={{ color: "var(--color-text)" }}>
-            Esta aplicacion ha sido creada integramente mediante un enfoque de vibe coding: sin escribir
-            manualmente una sola linea de codigo por parte del desarrollador, pero guiada en todo momento
-            por su criterio, experiencia y conocimiento profundo en desarrollo de software, diseno de
-            interfaces, analisis tecnico y ecosistemas Docker y contenedores. El resultado es una herramienta
-            que combina automatizacion creativa con direccion tecnica humana de alto nivel.
+            {t.about.vibeCodingBody}
           </p>
         </section>
 
         <footer className="pt-2">
           <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-            DarkSiteX
+            {t.about.footer}
           </p>
         </footer>
       </div>

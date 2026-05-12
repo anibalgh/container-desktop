@@ -100,7 +100,7 @@ impl SettingsRepository for ConfigManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use domain::entities::{AppSettings, ThemeSetting};
+    use domain::entities::{AppSettings, LanguageSetting, ThemeSetting};
 
     fn test_dir() -> PathBuf {
         std::env::temp_dir().join("container_desktop_test")
@@ -126,6 +126,7 @@ mod tests {
         assert_eq!(loaded.window_width, 1920);
         assert_eq!(loaded.window_height, 1080);
         assert_eq!(loaded.font_size, 18);
+        assert_eq!(loaded.language_setting, LanguageSetting::Auto);
 
         std::fs::remove_file(&path).ok();
     }
@@ -145,6 +146,7 @@ mod tests {
         assert_eq!(loaded.font_family, "Monospace");
         assert_eq!(loaded.font_size, 14);
         assert_eq!(loaded.theme_setting, ThemeSetting::Auto);
+        assert_eq!(loaded.language_setting, LanguageSetting::Auto);
 
         // It should also create the file with defaults
         assert!(path.exists());

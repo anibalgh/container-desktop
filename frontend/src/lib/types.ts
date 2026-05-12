@@ -104,12 +104,19 @@ export interface DockerEndpoint {
 
 export interface AppSettings {
   theme_setting: ThemeSetting;
+  language_setting: LanguageSetting;
   endpoint: DockerEndpoint;
   window_width: number;
   window_height: number;
   font_family: string;
   font_size: number;
 }
+
+export type Language = "en" | "es";
+
+export type LanguageSetting =
+  | "Auto"
+  | { Manual: Language };
 
 export type ThemeSetting =
   | "Auto"

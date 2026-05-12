@@ -1,3 +1,5 @@
+import { useI18n } from "../i18n";
+
 interface StatusBarProps {
   title: string;
   dockerVersion?: string;
@@ -5,6 +7,8 @@ interface StatusBarProps {
 }
 
 export function StatusBar({ title, dockerVersion, endpoint }: StatusBarProps) {
+  const { t } = useI18n();
+
   return (
     <footer
       className="flex items-center justify-between px-4 py-1 text-xs shrink-0 border-t"
@@ -23,7 +27,7 @@ export function StatusBar({ title, dockerVersion, endpoint }: StatusBarProps) {
         {endpoint && (
           <span className="font-mono text-xs">{endpoint}</span>
         )}
-        <span>Container Desktop v0.1.0</span>
+        <span>{t.statusBar.version}</span>
       </div>
     </footer>
   );
