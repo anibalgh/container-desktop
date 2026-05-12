@@ -12,6 +12,49 @@ use domain::{DomainError, DomainResult};
 use futures::Stream;
 use futures::StreamExt;
 
+/// Validates a container name against Docker's naming rules.
+///
+/// Docker container names must match `[a-zA-Z0-9][a-zA-Z0-9_.-]+`.
+fn validate_container_name(name: &str) -> DomainResult<()> {
+    if name.is_empty() {
+        return Ok(()); // empty name is fine, Docker will auto-generate one
+    }
+
+    // Docker container names are limited to 255 characters
+    if name.len() > 255 {
+        return Err(DomainError::Config(
+            "Container name exceeds maximum length of 255 characters".to_string(),
+        ));
+    }
+
+    // Reject null bytes (can bypass validation)
+    if name.contains('\0') {
+        return Err(DomainError::Config(
+            "Container name contains null byte".to_string(),
+        ));
+    }
+
+    // First character must be alphanumeric, underscore, or dot
+    let first_char = name.chars().next().unwrap();
+    if !first_char.is_ascii_alphanumeric() && first_char != '_' && first_char != '.' {
+        return Err(DomainError::Config(format!(
+            "Container name must start with alphanumeric, underscore, or dot: '{name}'"
+        )));
+    }
+
+    // All characters must be alphanumeric, underscore, dot, or hyphen
+    for (i, c) in name.chars().enumerate() {
+        if !c.is_ascii_alphanumeric() && c != '_' && c != '.' && c != '-' {
+            return Err(DomainError::Config(format!(
+                "Invalid character '{}' at position {} in container name '{name}'",
+                c, i
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 #[async_trait]
 impl ContainerRepository for DockerClient {
     async fn list_containers(&self, all: bool) -> DomainResult<Vec<Container>> {
@@ -104,6 +147,11 @@ impl ContainerRepository for DockerClient {
 
     async fn create_container(&self, config: &ContainerConfig) -> DomainResult<String> {
         let docker = self.get_docker().await?;
+
+        // Validate the container name if provided
+        if let Some(ref name) = config.name {
+            validate_container_name(name)?;
+        }
 
         let mut hc = bollard::config::HostConfig::default();
         if !config.volumes.is_empty() {

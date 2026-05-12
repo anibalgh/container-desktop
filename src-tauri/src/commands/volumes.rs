@@ -3,6 +3,7 @@ use domain::repository::VolumeRepository;
 use tauri::State;
 
 use crate::AppState;
+use super::validate_docker_id;
 
 #[tauri::command]
 pub async fn list_volumes(state: State<'_, AppState>) -> Result<Vec<Volume>, String> {
@@ -18,6 +19,7 @@ pub async fn create_volume(
     state: State<'_, AppState>,
     name: String,
 ) -> Result<Volume, String> {
+    validate_docker_id(&name, "Volume")?;
     state
         .docker_client
         .create_volume(&name)
@@ -27,6 +29,7 @@ pub async fn create_volume(
 
 #[tauri::command]
 pub async fn remove_volume(state: State<'_, AppState>, name: String) -> Result<(), String> {
+    validate_docker_id(&name, "Volume")?;
     state
         .docker_client
         .remove_volume(&name)
@@ -39,6 +42,7 @@ pub async fn inspect_volume(
     state: State<'_, AppState>,
     name: String,
 ) -> Result<String, String> {
+    validate_docker_id(&name, "Volume")?;
     state
         .docker_client
         .inspect_volume(&name)

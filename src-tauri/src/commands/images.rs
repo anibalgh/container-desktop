@@ -4,6 +4,7 @@ use futures::StreamExt;
 use tauri::{Emitter, State};
 
 use crate::AppState;
+use super::validate_docker_id;
 
 #[tauri::command]
 pub async fn list_images(state: State<'_, AppState>) -> Result<Vec<Image>, String> {
@@ -50,6 +51,7 @@ pub async fn pull_image(
 
 #[tauri::command]
 pub async fn remove_image(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    validate_docker_id(&id, "Image")?;
     state
         .docker_client
         .remove_image(&id)
@@ -64,6 +66,7 @@ pub async fn tag_image(
     repo: String,
     tag: String,
 ) -> Result<(), String> {
+    validate_docker_id(&id, "Image")?;
     state
         .docker_client
         .tag_image(&id, &repo, &tag)
@@ -73,6 +76,7 @@ pub async fn tag_image(
 
 #[tauri::command]
 pub async fn inspect_image(state: State<'_, AppState>, id: String) -> Result<String, String> {
+    validate_docker_id(&id, "Image")?;
     state
         .docker_client
         .inspect_image(&id)

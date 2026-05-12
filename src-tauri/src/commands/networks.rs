@@ -3,6 +3,7 @@ use domain::repository::NetworkRepository;
 use tauri::State;
 
 use crate::AppState;
+use super::validate_docker_id;
 
 #[tauri::command]
 pub async fn list_networks(state: State<'_, AppState>) -> Result<Vec<Network>, String> {
@@ -19,6 +20,7 @@ pub async fn create_network(
     name: String,
     driver: Option<String>,
 ) -> Result<String, String> {
+    validate_docker_id(&name, "Network")?;
     state
         .docker_client
         .create_network(&name, driver.as_deref())
@@ -28,6 +30,7 @@ pub async fn create_network(
 
 #[tauri::command]
 pub async fn remove_network(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    validate_docker_id(&id, "Network")?;
     state
         .docker_client
         .remove_network(&id)
@@ -40,6 +43,7 @@ pub async fn inspect_network(
     state: State<'_, AppState>,
     id: String,
 ) -> Result<String, String> {
+    validate_docker_id(&id, "Network")?;
     state
         .docker_client
         .inspect_network(&id)

@@ -3,7 +3,7 @@ use domain::entities::{LogLine, LogStream};
 use domain::repository::ComposeRepository;
 use domain::{DomainError, DomainResult};
 use futures::Stream;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
 pub struct ComposeClient;
@@ -17,6 +17,79 @@ impl ComposeClient {
     }
 }
 
+/// Validates a user-supplied compose file path to prevent path traversal attacks.
+///
+/// Returns the canonicalized path if valid, or a `DomainError` if the path is
+/// suspicious (contains `..` traversal, doesn't exist, isn't a .yml/.yaml file, etc.).
+fn validate_compose_path(file_path: &str) -> DomainResult<PathBuf> {
+    let path = Path::new(file_path);
+
+    // Reject empty paths
+    if file_path.is_empty() {
+        return Err(DomainError::Config(
+            "Compose file path cannot be empty".to_string(),
+        ));
+    }
+
+    // Reject paths with null bytes (used to bypass extension checks)
+    if file_path.contains('\0') {
+        return Err(DomainError::Config(
+            "Compose file path contains null byte".to_string(),
+        ));
+    }
+
+    // Check for path traversal sequences before canonicalization
+    // (canonicalization resolves symlinks but we also want to catch raw `..`)
+    let raw_str = path.to_string_lossy();
+    if raw_str.contains("..") {
+        return Err(DomainError::Config(
+            "Path traversal detected in compose file path".to_string(),
+        ));
+    }
+
+    // Verify the file exists and is a regular file
+    let metadata = std::fs::metadata(path).map_err(|e| {
+        DomainError::Config(format!("Cannot access compose file: {e}"))
+    })?;
+
+    if !metadata.is_file() {
+        return Err(DomainError::Config(
+            "Compose file path is not a regular file".to_string(),
+        ));
+    }
+
+    // Restrict to .yml / .yaml extensions
+    let valid_extensions = ["yml", "yaml"];
+    let has_valid_extension = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| valid_extensions.contains(&ext.to_lowercase().as_str()))
+        .unwrap_or(false);
+
+    if !has_valid_extension {
+        return Err(DomainError::Config(
+            "Compose file must have .yml or .yaml extension".to_string(),
+        ));
+    }
+
+    // Verify the file size is reasonable (prevent OOM on huge files)
+    let file_size = metadata.len();
+    const MAX_COMPOSE_FILE_SIZE: u64 = 10 * 1024 * 1024; // 10 MB
+    if file_size > MAX_COMPOSE_FILE_SIZE {
+        return Err(DomainError::Config(format!(
+            "Compose file too large ({} bytes, max {} bytes)",
+            file_size, MAX_COMPOSE_FILE_SIZE
+        )));
+    }
+
+    // Canonicalize to resolve symlinks and relative paths
+    let canonical = path.canonicalize().map_err(|e| {
+        DomainError::Config(format!("Cannot resolve compose file path: {e}"))
+    })?;
+
+    Ok(canonical)
+}
+
 #[async_trait]
 impl ComposeRepository for ComposeClient {
     async fn list_stacks(&self) -> DomainResult<Vec<domain::entities::ComposeStack>> {
@@ -27,14 +100,16 @@ impl ComposeRepository for ComposeClient {
         &self,
         file_path: &str,
     ) -> DomainResult<Box<dyn Stream<Item = DomainResult<LogLine>> + Unpin + Send>> {
-        run_compose_command(file_path, &["up", "-d"]).await
+        let canonical = validate_compose_path(file_path)?;
+        run_compose_command(canonical, &["up", "-d"]).await
     }
 
     async fn compose_down(&self, file_path: &str) -> DomainResult<()> {
-        let path = Path::new(file_path);
-        let dir = path.parent().unwrap_or_else(|| Path::new("."));
+        let canonical = validate_compose_path(file_path)?;
+        let file_str = canonical.to_string_lossy();
+        let dir = canonical.parent().unwrap_or_else(|| Path::new("."));
         let output = Command::new(Self::compose_bin())
-            .args(["-f", file_path, "down"])
+            .args(["-f", &file_str, "down"])
             .current_dir(dir)
             .output()
             .await
@@ -52,14 +127,16 @@ impl ComposeRepository for ComposeClient {
         &self,
         file_path: &str,
     ) -> DomainResult<Box<dyn Stream<Item = DomainResult<LogLine>> + Unpin + Send>> {
-        run_compose_command(file_path, &["logs", "-f", "--no-color"]).await
+        let canonical = validate_compose_path(file_path)?;
+        run_compose_command(canonical, &["logs", "-f", "--no-color"]).await
     }
 
     async fn compose_ps(&self, file_path: &str) -> DomainResult<Vec<String>> {
-        let path = Path::new(file_path);
-        let dir = path.parent().unwrap_or_else(|| Path::new("."));
+        let canonical = validate_compose_path(file_path)?;
+        let file_str = canonical.to_string_lossy();
+        let dir = canonical.parent().unwrap_or_else(|| Path::new("."));
         let output = Command::new(Self::compose_bin())
-            .args(["-f", file_path, "ps", "--no-trunc"])
+            .args(["-f", &file_str, "ps", "--no-trunc"])
             .current_dir(dir)
             .output()
             .await
@@ -70,14 +147,14 @@ impl ComposeRepository for ComposeClient {
 }
 
 async fn run_compose_command(
-    file_path: &str,
+    canonical_path: PathBuf,
     args: &[&str],
 ) -> DomainResult<Box<dyn Stream<Item = DomainResult<LogLine>> + Unpin + Send>> {
-    let path = Path::new(file_path);
-    let dir = path.parent().unwrap_or_else(|| Path::new("."));
+    let dir = canonical_path.parent().unwrap_or_else(|| Path::new("."));
+    let file_str = canonical_path.to_string_lossy();
 
     let mut cmd = Command::new(ComposeClient::compose_bin());
-    cmd.arg("-f").arg(file_path);
+    cmd.arg("-f").arg(file_str.as_ref());
     for a in args {
         cmd.arg(a);
     }

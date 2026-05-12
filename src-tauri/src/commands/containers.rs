@@ -4,6 +4,7 @@ use futures::StreamExt;
 use tauri::{Emitter, State};
 
 use crate::AppState;
+use super::validate_docker_id;
 
 #[tauri::command]
 pub async fn list_containers(
@@ -15,21 +16,25 @@ pub async fn list_containers(
 
 #[tauri::command]
 pub async fn start_container(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    validate_docker_id(&id, "Container")?;
     state.docker_client.start_container(&id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn stop_container(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    validate_docker_id(&id, "Container")?;
     state.docker_client.stop_container(&id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn restart_container(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    validate_docker_id(&id, "Container")?;
     state.docker_client.restart_container(&id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn remove_container(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    validate_docker_id(&id, "Container")?;
     state.docker_client.remove_container(&id).await.map_err(|e| e.to_string())
 }
 
@@ -43,6 +48,7 @@ pub async fn container_logs(
     since: Option<i32>,
     until: Option<i32>,
 ) -> Result<(), String> {
+    validate_docker_id(&id, "Container")?;
     let stream = state
         .docker_client
         .container_logs(&id, tail, follow, since, until)
@@ -70,6 +76,7 @@ pub async fn inspect_container(
     state: State<'_, AppState>,
     id: String,
 ) -> Result<String, String> {
+    validate_docker_id(&id, "Container")?;
     state.docker_client.inspect_container(&id).await.map_err(|e| e.to_string())
 }
 
@@ -78,6 +85,7 @@ pub async fn container_stats(
     state: State<'_, AppState>,
     id: String,
 ) -> Result<domain::entities::ContainerStats, String> {
+    validate_docker_id(&id, "Container")?;
     let mut stream = state.docker_client.container_stats(&id).await.map_err(|e| e.to_string())?;
     match stream.next().await {
         Some(Ok(stats)) => Ok(stats),
@@ -92,6 +100,19 @@ pub async fn exec_create(
     id: String,
     cmd: Vec<String>,
 ) -> Result<String, String> {
+    validate_docker_id(&id, "Container")?;
+    // Sanitize command arguments: reject empty commands and overly long arguments
+    if cmd.is_empty() {
+        return Err("Exec command cannot be empty".to_string());
+    }
+    for arg in &cmd {
+        if arg.contains('\0') {
+            return Err("Exec command argument contains null byte".to_string());
+        }
+        if arg.len() > 4096 {
+            return Err("Exec command argument too long".to_string());
+        }
+    }
     let exec_id = state.docker_client.create_exec(&id, &cmd).await.map_err(|e| e.to_string())?;
     Ok(exec_id.0)
 }
@@ -102,6 +123,7 @@ pub async fn exec_start(
     state: State<'_, AppState>,
     exec_id_str: String,
 ) -> Result<(), String> {
+    validate_docker_id(&exec_id_str, "Exec")?;
     let exec_id = ExecId(exec_id_str.clone());
     let session = state
         .docker_client
@@ -136,6 +158,15 @@ pub async fn exec_input(
     exec_id_str: String,
     data: Vec<u8>,
 ) -> Result<(), String> {
+    validate_docker_id(&exec_id_str, "Exec")?;
+    // Limit input data size to prevent memory exhaustion
+    const MAX_EXEC_INPUT_SIZE: usize = 65536; // 64 KB
+    if data.len() > MAX_EXEC_INPUT_SIZE {
+        return Err(format!(
+            "Exec input too large ({} bytes, max {MAX_EXEC_INPUT_SIZE} bytes)",
+            data.len()
+        ));
+    }
     use tokio::io::AsyncWriteExt;
     let mut inputs = state.exec_inputs.lock().await;
     if let Some(writer) = inputs.get_mut(&exec_id_str) {
@@ -151,6 +182,7 @@ pub async fn exec_resize(
     width: u16,
     height: u16,
 ) -> Result<(), String> {
+    validate_docker_id(&exec_id_str, "Exec")?;
     let exec_id = ExecId(exec_id_str);
     state.docker_client.resize_exec(&exec_id, width, height).await.map_err(|e| e.to_string())
 }
