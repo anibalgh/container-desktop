@@ -35,6 +35,7 @@ A cross-platform desktop application for managing Docker containers, images, vol
 - **Font size presets**: Normal / Large / Larger (proportional scaling across all UI)
 - **Monospace font selector** — detects installed system fonts via `fc-list`
 - Navigation sidebar with PNG icon (adapts to theme) and connection status indicator
+- Minimal **Acerca de** link in the sidebar footer for project and licensing details
 - Modal dialogs for image pull and confirmation actions
 - Live streaming output for image pulls, container logs, compose, and terminal sessions
 
@@ -156,6 +157,7 @@ npx tsc --noEmit   # Type check only
 | **Networks** | Sortable table. Create with driver selector (bridge/overlay/host/none). Remove. |
 | **Docker Compose** | Compose file path input, up/down buttons, live output stream |
 | **Settings** | Theme (Auto/Manual + 22 variants), Docker endpoint URL, Font Size (Normal/Large/Larger), Monospace Font (system detection) |
+| **Acerca de** | Project summary, MIT license, tech stack, and vibe coding note with minimalist access from the sidebar footer |
 
 ### Theme Selection
 

@@ -21,9 +21,10 @@ src/
 │   ├── tauri.ts     # Typed wrappers for all 28 Tauri IPC commands + event listeners
 │   └── types.ts     # TypeScript interfaces mirroring domain entities
 ├── components/
-│   ├── Sidebar.tsx  # Navigation sidebar (7 screens + connection indicator)
+│   ├── Sidebar.tsx  # Navigation sidebar (7 primary screens + about link + connection indicator)
 │   └── StatusBar.tsx # Bottom bar (screen title, Docker version, endpoint)
 └── screens/
+    ├── About.tsx      # Project summary, license, tech stack, vibe coding note
     ├── Dashboard.tsx   # Docker daemon info + stat cards
     ├── Containers.tsx  # Table with start/stop/restart/remove actions
     ├── Images.tsx      # Table + pull modal with live progress stream

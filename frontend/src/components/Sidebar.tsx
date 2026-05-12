@@ -11,7 +11,9 @@ const NAV_ITEMS = [
   { label: "Settings", icon: "⚙️" },
 ] as const;
 
-export type Screen = (typeof NAV_ITEMS)[number]["label"];
+export const ABOUT_SCREEN = "Acerca de" as const;
+
+export type Screen = (typeof NAV_ITEMS)[number]["label"] | typeof ABOUT_SCREEN;
 
 interface SidebarProps {
   active: Screen;
@@ -62,6 +64,19 @@ export function Sidebar({ active, connected, darkMode, onNavigate }: SidebarProp
       </nav>
 
       <div className="px-4 py-3 border-t border-white/10">
+        <div className="flex justify-end mb-3">
+          <button
+            onClick={() => onNavigate(ABOUT_SCREEN)}
+            className="text-[11px] leading-none transition-opacity hover:opacity-100"
+            style={{
+              color: active === ABOUT_SCREEN ? "white" : "rgba(255, 255, 255, 0.65)",
+              textDecoration: active === ABOUT_SCREEN ? "underline" : "none",
+              textUnderlineOffset: "0.2em",
+            }}
+          >
+            {ABOUT_SCREEN}
+          </button>
+        </div>
         <div className="flex items-center gap-2 text-xs">
           <span className={`w-2 h-2 rounded-full ${connected ? "bg-green-400" : "bg-red-400"}`} />
           <span style={{ color: "var(--color-sidebar-text)" }}>

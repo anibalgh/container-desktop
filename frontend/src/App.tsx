@@ -8,6 +8,7 @@ import { VolumesScreen } from "./screens/Volumes";
 import { NetworksScreen } from "./screens/Networks";
 import { ComposeScreen } from "./screens/Compose";
 import { SettingsScreen } from "./screens/Settings";
+import { AboutScreen } from "./screens/About";
 import type { DockerInfo, ThemeVariant } from "./lib/types";
 import { loadSettings } from "./lib/tauri";
 
@@ -77,6 +78,7 @@ export default function App() {
       case "Networks": return <NetworksScreen />;
       case "Compose": return <ComposeScreen />;
       case "Settings": return <SettingsScreen onThemeChange={handleThemeChange} />;
+      case "Acerca de": return <AboutScreen />;
       default: return <Dashboard connected={connected} onConnectionChange={handleConnectionChange} />;
     }
   }
