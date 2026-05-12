@@ -28,11 +28,14 @@ pub trait ContainerRepository: Send + Sync {
     async fn remove_container(&self, id: &str) -> DomainResult<()>;
 
     /// Stream logs from a container.
+    /// `since` and `until` are Unix timestamps in seconds.
     async fn container_logs(
         &self,
         id: &str,
         tail: Option<u32>,
         follow: bool,
+        since: Option<i32>,
+        until: Option<i32>,
     ) -> DomainResult<Box<dyn Stream<Item = DomainResult<LogLine>> + Unpin + Send>>;
 
     /// Create an exec session inside a running container.

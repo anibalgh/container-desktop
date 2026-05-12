@@ -8,106 +8,81 @@ import { VolumesScreen } from "./screens/Volumes";
 import { NetworksScreen } from "./screens/Networks";
 import { ComposeScreen } from "./screens/Compose";
 import { SettingsScreen } from "./screens/Settings";
-import type { DockerInfo } from "./lib/types";
+import type { DockerInfo, ThemeVariant } from "./lib/types";
 import { loadSettings } from "./lib/tauri";
+
+const DARK_VARIANTS: ThemeVariant[] = [
+  "Dark", "Dracula", "Nord", "SolarizedDark", "GruvboxDark",
+  "CatppuccinFrappe", "CatppuccinMacchiato", "CatppuccinMocha",
+  "TokyoNight", "TokyoNightStorm", "KanagawaWave", "KanagawaDragon",
+  "Moonfly", "Nightfly", "Oxocarbon", "Ferra",
+];
+
+function isDark(variant: ThemeVariant): boolean {
+  return DARK_VARIANTS.includes(variant);
+}
 
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<Screen>("Dashboard");
   const [dockerInfo, setDockerInfo] = useState<DockerInfo | null>(null);
-  const [darkMode, setDarkMode] = useState(() => {
-    // Default to OS preference, can be overridden by settings
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
+  const [themeVariant, setThemeVariant] = useState<ThemeVariant>(() =>
+    window.matchMedia("(prefers-color-scheme: dark)").matches ? "Dark" : "Light",
+  );
 
   useEffect(() => {
-    // Load theme preference from settings
-    loadSettings()
-      .then((settings) => {
-        if (typeof settings.theme_setting === "object" && "Manual" in settings.theme_setting) {
-          const variant = settings.theme_setting.Manual;
-          // Determine if variant is dark
-          const darkVariants = [
-            "Dark", "Dracula", "Nord", "SolarizedDark",
-            "GruvboxDark", "CatppuccinFrappe", "CatppuccinMacchiato",
-            "CatppuccinMocha", "TokyoNight", "TokyoNightStorm",
-            "KanagawaWave", "KanagawaDragon", "Moonfly",
-            "Nightfly", "Oxocarbon", "Ferra",
-          ];
-          setDarkMode(darkVariants.includes(variant));
-        }
-      })
-      .catch(() => {
-        // Use default OS preference
-      });
+    loadSettings().then((s) => {
+      if (typeof s.theme_setting === "object" && "Manual" in s.theme_setting) {
+        setThemeVariant(s.theme_setting.Manual);
+      }
+      // Apply font size globally
+      document.documentElement.style.fontSize = `${s.font_size}px`;
+      if (s.font_family) {
+        document.documentElement.style.setProperty("--font-mono", `"${s.font_family}", monospace`);
+      }
+    }).catch(() => {});
 
-    // Listen for OS theme changes when in Auto mode
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (e: MediaQueryListEvent) => {
-      // Only auto-update if we haven't loaded a manual setting yet
-      loadSettings().then((settings) => {
-        if (settings.theme_setting === "Auto") {
-          setDarkMode(e.matches);
-        }
+      loadSettings().then((s) => {
+        if (s.theme_setting === "Auto") setThemeVariant(e.matches ? "Dark" : "Light");
       }).catch(() => {});
     };
-    mediaQuery.addEventListener("change", handler);
-    return () => mediaQuery.removeEventListener("change", handler);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
   }, []);
 
-  // Apply dark class to root element
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", darkMode);
-  }, [darkMode]);
+    const dark = isDark(themeVariant);
+    document.documentElement.setAttribute("data-theme", themeVariant);
+    document.documentElement.classList.toggle("dark", dark);
+    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  }, [themeVariant]);
 
   const connected = dockerInfo !== null;
 
+  function handleThemeChange(variant: ThemeVariant, _auto: boolean) {
+    setThemeVariant(variant);
+  }
+
   function renderScreen() {
     switch (activeScreen) {
-      case "Dashboard":
-        return (
-          <Dashboard
-            connected={connected}
-            onConnectionChange={(info) => setDockerInfo(info)}
-          />
-        );
-      case "Containers":
-        return <ContainersScreen />;
-      case "Images":
-        return <ImagesScreen />;
-      case "Volumes":
-        return <VolumesScreen />;
-      case "Networks":
-        return <NetworksScreen />;
-      case "Compose":
-        return <ComposeScreen />;
-      case "Settings":
-        return <SettingsScreen />;
-      default:
-        return (
-          <Dashboard
-            connected={connected}
-            onConnectionChange={(info) => setDockerInfo(info)}
-          />
-        );
+      case "Dashboard": return <Dashboard connected={connected} onConnectionChange={(info) => setDockerInfo(info)} />;
+      case "Containers": return <ContainersScreen />;
+      case "Images": return <ImagesScreen />;
+      case "Volumes": return <VolumesScreen />;
+      case "Networks": return <NetworksScreen />;
+      case "Compose": return <ComposeScreen />;
+      case "Settings": return <SettingsScreen onThemeChange={handleThemeChange} />;
+      default: return <Dashboard connected={connected} onConnectionChange={(info) => setDockerInfo(info)} />;
     }
   }
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        active={activeScreen}
-        connected={connected}
-        onNavigate={setActiveScreen}
-      />
+      <Sidebar active={activeScreen} connected={connected} darkMode={isDark(themeVariant)} onNavigate={setActiveScreen} />
       <div className="flex-1 flex flex-col min-w-0">
-        <main className="flex-1 overflow-auto">
-          {renderScreen()}
-        </main>
-        <StatusBar
-          title={activeScreen}
-          dockerVersion={dockerInfo?.server_version}
-          endpoint={dockerInfo?.endpoint}
-        />
+        <main className="flex-1 overflow-auto">{renderScreen()}</main>
+        <StatusBar title={activeScreen} dockerVersion={dockerInfo?.server_version} endpoint={dockerInfo?.endpoint} />
       </div>
     </div>
   );

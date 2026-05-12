@@ -10,6 +10,8 @@ A cross-platform desktop application for managing Docker containers, images, vol
 
 > Inspired by Docker Desktop, Podman Desktop, and Rancher Desktop.
 
+![Screenshot](./assets/screenshot.png)
+
 ---
 
 ## Features
@@ -18,35 +20,35 @@ A cross-platform desktop application for managing Docker containers, images, vol
 
 | Resource | Actions |
 |---|---|
-| **Containers** | List, start, stop, restart, remove, view logs, interactive terminal |
+| **Containers** | List, start, stop, restart, remove. Log viewer with tail/since/until filters. Interactive terminal (sh, bash, zsh, ash, dash) with root option and single-command mode. Resource stats (CPU, memory, network, block I/O, PIDs). |
 | **Images** | List, pull (with live progress), remove, tag, inspect |
 | **Volumes** | List, create, remove, inspect |
-| **Networks** | List, create (bridge/overlay/host), remove, inspect |
+| **Networks** | List, create (bridge/overlay/host/none), remove, inspect |
 | **Docker Compose** | Up, down, streaming log viewer |
 
 ### User Interface
 
 - Modern web-based UI rendered in a native WebView
-- Dark/light theme with CSS custom properties
-- Auto mode follows OS `prefers-color-scheme`
-- 22 manual theme variants persisted to user config
-- Sidebar navigation with connection status indicator
-- Responsive data tables for all Docker resources
-- Modal dialogs for pull, create, and confirmation actions
-- Live streaming output for image pulls, container logs, and compose
+- **22 distinct themes** with unique color palettes: Catppuccin, Tokyo Night, Dracula, Nord, Gruvbox, Solarized, Kanagawa, Moonfly, Nightfly, Oxocarbon, Ferra
+- Auto mode follows OS `prefers-color-scheme`; manual override with instant preview
+- **Sortable data tables** — click any column header to sort ascending/descending
+- **Font size presets**: Normal / Large / Larger (proportional scaling across all UI)
+- **Monospace font selector** — detects installed system fonts via `fc-list`
+- Navigation sidebar with PNG icon (adapts to theme) and connection status indicator
+- Modal dialogs for image pull and confirmation actions
+- Live streaming output for image pulls, container logs, compose, and terminal sessions
 
 ### Cross-Platform
 
 - **Linux**: Unix socket (`/var/run/docker.sock`)
-- **macOS**: Unix socket
+- **macOS**: Unix socket  
 - **Windows**: Named pipe + TCP
 
 ### Connection Options
 
-- Local Docker daemon (auto-detect)
+- Local Docker daemon (auto-detect on startup)
 - Remote Docker over TCP
 - TLS-secured connections (certificate-based)
-- Auto-connect on startup with event-based status
 
 ---
 
@@ -64,7 +66,7 @@ Dependency direction: `domain ← infrastructure ← src-tauri`
 | Layer | Tech | Purpose |
 |-------|------|---------|
 | Frontend | React 19, Tailwind CSS 4 | Desktop UI rendered in WebView |
-| IPC Bridge | Tauri v2 commands | Type-safe Rust ↔ JS communication |
+| IPC Bridge | Tauri v2 commands (32 commands) | Type-safe Rust ↔ JS communication |
 | Domain | Pure Rust | Entities, traits, no framework deps |
 | Infrastructure | Bollard 0.21, directories | Docker API, config persistence |
 
@@ -108,7 +110,7 @@ cd ..           # back to project root
 cargo tauri dev
 ```
 
-This starts the Vite dev server (hot-reload) and opens the Tauri window.
+Starts the Vite dev server (hot-reload on port 5173) and opens the Tauri window.
 
 ### 3. Build for production
 
@@ -116,25 +118,21 @@ This starts the Vite dev server (hot-reload) and opens the Tauri window.
 cargo tauri build
 ```
 
-The output bundle will be in `src-tauri/target/release/bundle/`.
+Output: `src-tauri/target/release/bundle/`.
 
 ---
 
 ## Development
 
-### Backend (Rust)
-
 ```bash
-cargo check                        # Check entire workspace
-cargo check -p domain              # Check domain crate only
-cargo check -p container-desktop-app  # Check Tauri app only
-cargo clippy                       # Lint
-cargo fmt                          # Format
-```
+# Backend
+cargo check
+cargo check -p domain
+cargo check -p container-desktop-app
+cargo clippy
+cargo fmt
 
-### Frontend (TypeScript)
-
-```bash
+# Frontend
 cd frontend
 npm run dev        # Dev server with HMR (port 5173)
 npm run build      # Production build
@@ -149,22 +147,38 @@ npx tsc --noEmit   # Type check only
 
 | Screen | Description |
 |---|---|
-| **Dashboard** | Connection status, Docker daemon info (version, OS, container/image counts) |
-| **Containers** | List all containers with state badges, start/stop/restart/remove, confirmation dialogs |
-| **Images** | List images, pull from registry with live progress, remove |
-| **Volumes** | List volumes, create, remove |
-| **Networks** | List networks, create (with driver selection: bridge/overlay/host/none), remove |
+| **Dashboard** | Connection status, Docker daemon info (version, OS, container/image counts, architecture) |
+| **Containers** | Sortable table with state badges. Select a container to access: **Logs** (tail N lines, since/until datetime filters, follow mode), **Terminal** (shell picker, root checkbox, interactive vs single-command), **Stats** (CPU%, memory, network RX/TX, block I/O, PIDs) |
+| **Images** | Sortable table. Pull from registry with live progress stream. Remove with confirmation. |
+| **Volumes** | Sortable table. Create / remove. |
+| **Networks** | Sortable table. Create with driver selector (bridge/overlay/host/none). Remove. |
 | **Docker Compose** | Compose file path input, up/down buttons, live output stream |
-| **Settings** | Theme mode (Auto/Manual + 22 variants), Docker endpoint URL, font family/size |
+| **Settings** | Theme (Auto/Manual + 22 variants), Docker endpoint URL, Font Size (Normal/Large/Larger), Monospace Font (system detection) |
 
 ### Theme Selection
 
 1. Navigate to **Settings**
 2. Toggle **Auto** (follows OS) or **Manual**
-3. If Manual, pick a theme from the dropdown (Dark, Dracula, Nord, Catppuccin, Tokyo Night, etc.)
-4. Click **Save**
+3. If Manual, pick a theme — changes apply instantly
+4. Click **Save** to persist across restarts
 
 Available themes: Light, Dark, Dracula, Nord, Solarized Light/Dark, Gruvbox Light/Dark, Catppuccin (Latte/Frappe/Macchiato/Mocha), Tokyo Night (Standard/Storm/Light), Kanagawa (Wave/Dragon/Lotus), Moonfly, Nightfly, Oxocarbon, Ferra.
+
+### Font Size
+
+Three proportional presets that scale the entire UI:
+
+| Preset | Base px | Effect |
+|---|---|---|
+| **Normal** | 14 | Default |
+| **Large** | 18 | ~30% larger |
+| **Larger** | 22 | ~60% larger |
+
+All text sizes use `rem` units — changing the root size scales everything proportionally while preserving layout aesthetics.
+
+### Monospace Font
+
+The dropdown lists all monospace fonts detected on your system via `fc-list`. The selection applies to code blocks, logs, terminal output, and table data. Falls back to system monospace if none selected.
 
 ---
 
@@ -192,7 +206,7 @@ Settings are persisted to:
   },
   "window_width": 1280,
   "window_height": 800,
-  "font_family": "Monospace",
+  "font_family": "JetBrains Mono",
   "font_size": 14
 }
 ```
@@ -210,17 +224,17 @@ container-desktop/
 │   ├── index.html
 │   └── src/
 │       ├── main.tsx           # React entry point
-│       ├── App.tsx            # Layout, navigation, theme
-│       ├── index.css          # Tailwind + CSS variables
+│       ├── App.tsx            # Layout, navigation, theme, font
+│       ├── index.css          # Tailwind + 22 theme palettes
 │       ├── lib/
-│       │   ├── tauri.ts       # Tauri IPC bridge (28 commands)
+│       │   ├── tauri.ts       # Tauri IPC bridge (32 commands + events)
 │       │   └── types.ts       # TypeScript interfaces
 │       ├── components/
-│       │   ├── Sidebar.tsx    # Navigation sidebar
+│       │   ├── Sidebar.tsx    # Navigation sidebar + PNG icon
 │       │   └── StatusBar.tsx  # Bottom status bar
 │       └── screens/
 │           ├── Dashboard.tsx
-│           ├── Containers.tsx
+│           ├── Containers.tsx # Table + Logs/Terminal/Stats tabs
 │           ├── Images.tsx
 │           ├── Volumes.tsx
 │           ├── Networks.tsx
@@ -235,12 +249,12 @@ container-desktop/
 │       ├── lib.rs             # App state, setup, command registration
 │       └── commands/          # Tauri IPC handlers
 │           ├── connection.rs
-│           ├── containers.rs
+│           ├── containers.rs  # + exec_create, exec_start, exec_input, exec_resize
 │           ├── images.rs
 │           ├── volumes.rs
 │           ├── networks.rs
 │           ├── compose.rs
-│           └── settings.rs
+│           └── settings.rs    # + list_fonts
 └── crates/
     ├── domain/src/            # Entities + repository traits
     └── infrastructure/src/    # Docker API (bollard) + config persistence
@@ -252,12 +266,12 @@ container-desktop/
 
 | Technology | Purpose |
 |---|---|
-| [Tauri v2](https://tauri.app) | Desktop framework (Rust backend + WebView frontend) |
+| [Tauri v2](https://tauri.app) | Desktop framework |
 | [React 19](https://react.dev) | UI library |
 | [TypeScript](https://www.typescriptlang.org) | Type-safe frontend |
-| [Tailwind CSS 4](https://tailwindcss.com) | Utility-first CSS framework |
+| [Tailwind CSS 4](https://tailwindcss.com) | Utility-first CSS |
 | [Vite](https://vite.dev) | Frontend build tool |
-| [Bollard](https://github.com/fussybeaver/bollard) | Docker Engine API client |
+| [Bollard 0.21](https://github.com/fussybeaver/bollard) | Docker Engine API |
 | [Tokio](https://tokio.rs) | Async runtime |
 | [Serde](https://serde.rs) | Serialization |
 

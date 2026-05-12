@@ -1,3 +1,6 @@
+import darkPng from "../assets/icons/dark-icon.png";
+import lightPng from "../assets/icons/light-icon.png";
+
 const NAV_ITEMS = [
   { label: "Dashboard", icon: "📊" },
   { label: "Containers", icon: "📦" },
@@ -13,10 +16,11 @@ export type Screen = (typeof NAV_ITEMS)[number]["label"];
 interface SidebarProps {
   active: Screen;
   connected: boolean;
+  darkMode: boolean;
   onNavigate: (screen: Screen) => void;
 }
 
-export function Sidebar({ active, connected, onNavigate }: SidebarProps) {
+export function Sidebar({ active, connected, darkMode, onNavigate }: SidebarProps) {
   return (
     <aside
       className="flex flex-col w-56 shrink-0 select-none"
@@ -25,19 +29,14 @@ export function Sidebar({ active, connected, onNavigate }: SidebarProps) {
         color: "var(--color-sidebar-text)",
       }}
     >
-      {/* Logo / Brand */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg"
-          style={{ backgroundColor: "var(--color-accent)" }}>
-          🐳
-        </div>
+        <img src={darkMode ? darkPng : lightPng} alt="" className="w-8 h-8 rounded-lg" />
         <div>
           <div className="text-sm font-semibold text-white">Container</div>
           <div className="text-xs text-white/60">Desktop</div>
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 py-2">
         {NAV_ITEMS.map((item) => (
           <button
@@ -49,10 +48,7 @@ export function Sidebar({ active, connected, onNavigate }: SidebarProps) {
                 active === item.label
                   ? "color-mix(in srgb, var(--color-sidebar-active) 20%, transparent)"
                   : "transparent",
-              color:
-                active === item.label
-                  ? "white"
-                  : "var(--color-sidebar-text)",
+              color: active === item.label ? "white" : "var(--color-sidebar-text)",
               borderLeft:
                 active === item.label
                   ? "3px solid var(--color-sidebar-active)"
@@ -65,12 +61,9 @@ export function Sidebar({ active, connected, onNavigate }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Connection status indicator */}
       <div className="px-4 py-3 border-t border-white/10">
         <div className="flex items-center gap-2 text-xs">
-          <span
-            className={`w-2 h-2 rounded-full ${connected ? "bg-green-400" : "bg-red-400"}`}
-          />
+          <span className={`w-2 h-2 rounded-full ${connected ? "bg-green-400" : "bg-red-400"}`} />
           <span style={{ color: "var(--color-sidebar-text)" }}>
             {connected ? "Connected" : "Disconnected"}
           </span>

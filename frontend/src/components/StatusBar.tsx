@@ -21,7 +21,7 @@ export function StatusBar({ title, dockerVersion, endpoint }: StatusBarProps) {
       </div>
       <div className="flex items-center gap-4">
         {endpoint && (
-          <span className="font-mono text-[11px]">{endpoint}</span>
+          <span className="font-mono text-xs">{endpoint}</span>
         )}
         <span>Container Desktop v0.1.0</span>
       </div>

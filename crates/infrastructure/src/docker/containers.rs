@@ -190,6 +190,8 @@ impl ContainerRepository for DockerClient {
         id: &str,
         tail: Option<u32>,
         follow: bool,
+        since: Option<i32>,
+        until: Option<i32>,
     ) -> DomainResult<Box<dyn Stream<Item = DomainResult<LogLine>> + Unpin + Send>> {
         let docker = self.get_docker().await?;
         let mut b = LogsOptionsBuilder::default()
@@ -201,6 +203,8 @@ impl ContainerRepository for DockerClient {
             None => "all".to_string(),
         };
         b = b.tail(&tail_str);
+        if let Some(s) = since { b = b.since(s); }
+        if let Some(u) = until { b = b.until(u); }
         let stream = docker.logs(id, Some(b.build()));
 
         Ok(Box::new(stream.map(|r| {

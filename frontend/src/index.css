@@ -6,7 +6,8 @@
 }
 
 @layer base {
-  :root {
+  /* ── Light themes ─────────────────────────── */
+  :root, [data-theme="Light"] {
     --color-surface: #ffffff;
     --color-surface-secondary: #f8f9fa;
     --color-border: #e2e8f0;
@@ -23,7 +24,98 @@
     --color-status-bg: #f1f5f9;
   }
 
-  .dark {
+  /* ── Solarized Light ──────────────────────── */
+  [data-theme="SolarizedLight"] {
+    --color-surface: #fdf6e3;
+    --color-surface-secondary: #eee8d5;
+    --color-border: #d3cbb7;
+    --color-text: #586e75;
+    --color-text-muted: #93a1a1;
+    --color-accent: #268bd2;
+    --color-accent-hover: #1a6fb5;
+    --color-danger: #dc322f;
+    --color-success: #859900;
+    --color-warning: #b58900;
+    --color-sidebar: #002b36;
+    --color-sidebar-text: #93a1a1;
+    --color-sidebar-active: #268bd2;
+    --color-status-bg: #eee8d5;
+  }
+
+  /* ── Gruvbox Light ────────────────────────── */
+  [data-theme="GruvboxLight"] {
+    --color-surface: #fbf1c7;
+    --color-surface-secondary: #ebdbb2;
+    --color-border: #d5c4a1;
+    --color-text: #3c3836;
+    --color-text-muted: #7c6f64;
+    --color-accent: #458588;
+    --color-accent-hover: #3a6d6f;
+    --color-danger: #cc241d;
+    --color-success: #98971a;
+    --color-warning: #d79921;
+    --color-sidebar: #282828;
+    --color-sidebar-text: #bdae93;
+    --color-sidebar-active: #458588;
+    --color-status-bg: #ebdbb2;
+  }
+
+  /* ── Catppuccin Latte ─────────────────────── */
+  [data-theme="CatppuccinLatte"] {
+    --color-surface: #eff1f5;
+    --color-surface-secondary: #e6e9ef;
+    --color-border: #ccd0da;
+    --color-text: #4c4f69;
+    --color-text-muted: #9ca0b0;
+    --color-accent: #8839ef;
+    --color-accent-hover: #7229d6;
+    --color-danger: #d20f39;
+    --color-success: #40a02b;
+    --color-warning: #df8e1d;
+    --color-sidebar: #1e1e2e;
+    --color-sidebar-text: #bac2de;
+    --color-sidebar-active: #cba6f7;
+    --color-status-bg: #e6e9ef;
+  }
+
+  /* ── Tokyo Night Light ────────────────────── */
+  [data-theme="TokyoNightLight"] {
+    --color-surface: #d5d6db;
+    --color-surface-secondary: #c8c9ce;
+    --color-border: #b6b7bd;
+    --color-text: #343b59;
+    --color-text-muted: #848cb5;
+    --color-accent: #2e7de9;
+    --color-accent-hover: #1e6cd8;
+    --color-danger: #f52a65;
+    --color-success: #587539;
+    --color-warning: #8f5e15;
+    --color-sidebar: #1a1b26;
+    --color-sidebar-text: #a9b1d6;
+    --color-sidebar-active: #7aa2f7;
+    --color-status-bg: #c8c9ce;
+  }
+
+  /* ── Kanagawa Lotus ───────────────────────── */
+  [data-theme="KanagawaLotus"] {
+    --color-surface: #f2ecbc;
+    --color-surface-secondary: #e8dbb4;
+    --color-border: #c9bf9b;
+    --color-text: #545464;
+    --color-text-muted: #8a8989;
+    --color-accent: #768fba;
+    --color-accent-hover: #5e7aa8;
+    --color-danger: #c84053;
+    --color-success: #6f894e;
+    --color-warning: #b47109;
+    --color-sidebar: #1f1f28;
+    --color-sidebar-text: #c8c9c9;
+    --color-sidebar-active: #7e9cd8;
+    --color-status-bg: #e8dbb4;
+  }
+
+  /* ── Dark themes ──────────────────────────── */
+  .dark, [data-theme="Dark"] {
     --color-surface: #0f172a;
     --color-surface-secondary: #1e293b;
     --color-border: #334155;
@@ -40,6 +132,276 @@
     --color-status-bg: #1e293b;
   }
 
+  /* ── Dracula ──────────────────────────────── */
+  [data-theme="Dracula"] {
+    --color-surface: #282a36;
+    --color-surface-secondary: #21222c;
+    --color-border: #44475a;
+    --color-text: #f8f8f2;
+    --color-text-muted: #6272a4;
+    --color-accent: #bd93f9;
+    --color-accent-hover: #a679f5;
+    --color-danger: #ff5555;
+    --color-success: #50fa7b;
+    --color-warning: #ffb86c;
+    --color-sidebar: #1a1b26;
+    --color-sidebar-text: #6272a4;
+    --color-sidebar-active: #bd93f9;
+    --color-status-bg: #21222c;
+  }
+
+  /* ── Nord ─────────────────────────────────── */
+  [data-theme="Nord"] {
+    --color-surface: #2e3440;
+    --color-surface-secondary: #3b4252;
+    --color-border: #4c566a;
+    --color-text: #eceff4;
+    --color-text-muted: #81a1c1;
+    --color-accent: #88c0d0;
+    --color-accent-hover: #6baebf;
+    --color-danger: #bf616a;
+    --color-success: #a3be8c;
+    --color-warning: #ebcb8b;
+    --color-sidebar: #242933;
+    --color-sidebar-text: #81a1c1;
+    --color-sidebar-active: #88c0d0;
+    --color-status-bg: #3b4252;
+  }
+
+  /* ── Solarized Dark ───────────────────────── */
+  [data-theme="SolarizedDark"] {
+    --color-surface: #002b36;
+    --color-surface-secondary: #073642;
+    --color-border: #1d4b55;
+    --color-text: #839496;
+    --color-text-muted: #586e75;
+    --color-accent: #268bd2;
+    --color-accent-hover: #1a6fb5;
+    --color-danger: #dc322f;
+    --color-success: #859900;
+    --color-warning: #b58900;
+    --color-sidebar: #001f29;
+    --color-sidebar-text: #586e75;
+    --color-sidebar-active: #268bd2;
+    --color-status-bg: #073642;
+  }
+
+  /* ── Gruvbox Dark ─────────────────────────── */
+  [data-theme="GruvboxDark"] {
+    --color-surface: #282828;
+    --color-surface-secondary: #32302f;
+    --color-border: #504945;
+    --color-text: #ebdbb2;
+    --color-text-muted: #a89984;
+    --color-accent: #83a598;
+    --color-accent-hover: #6e8d82;
+    --color-danger: #fb4934;
+    --color-success: #b8bb26;
+    --color-warning: #fabd2f;
+    --color-sidebar: #1d2021;
+    --color-sidebar-text: #a89984;
+    --color-sidebar-active: #83a598;
+    --color-status-bg: #32302f;
+  }
+
+  /* ── Catppuccin Frappe ────────────────────── */
+  [data-theme="CatppuccinFrappe"] {
+    --color-surface: #303446;
+    --color-surface-secondary: #292c3c;
+    --color-border: #51576d;
+    --color-text: #c6d0f5;
+    --color-text-muted: #838ba7;
+    --color-accent: #ca9ee6;
+    --color-accent-hover: #b48ad6;
+    --color-danger: #e78284;
+    --color-success: #a6d189;
+    --color-warning: #e5c890;
+    --color-sidebar: #232634;
+    --color-sidebar-text: #838ba7;
+    --color-sidebar-active: #ca9ee6;
+    --color-status-bg: #292c3c;
+  }
+
+  /* ── Catppuccin Macchiato ─────────────────── */
+  [data-theme="CatppuccinMacchiato"] {
+    --color-surface: #24273a;
+    --color-surface-secondary: #1e2030;
+    --color-border: #494d64;
+    --color-text: #cad3f5;
+    --color-text-muted: #8087a2;
+    --color-accent: #c6a0f6;
+    --color-accent-hover: #b08ae6;
+    --color-danger: #ed8796;
+    --color-success: #a6da95;
+    --color-warning: #eed49f;
+    --color-sidebar: #181926;
+    --color-sidebar-text: #8087a2;
+    --color-sidebar-active: #c6a0f6;
+    --color-status-bg: #1e2030;
+  }
+
+  /* ── Catppuccin Mocha ─────────────────────── */
+  [data-theme="CatppuccinMocha"] {
+    --color-surface: #1e1e2e;
+    --color-surface-secondary: #181825;
+    --color-border: #45475a;
+    --color-text: #cdd6f4;
+    --color-text-muted: #7f849c;
+    --color-accent: #cba6f7;
+    --color-accent-hover: #b490f0;
+    --color-danger: #f38ba8;
+    --color-success: #a6e3a1;
+    --color-warning: #f9e2af;
+    --color-sidebar: #11111b;
+    --color-sidebar-text: #7f849c;
+    --color-sidebar-active: #cba6f7;
+    --color-status-bg: #181825;
+  }
+
+  /* ── Tokyo Night ──────────────────────────── */
+  [data-theme="TokyoNight"] {
+    --color-surface: #1a1b26;
+    --color-surface-secondary: #16161e;
+    --color-border: #2f3346;
+    --color-text: #c0caf5;
+    --color-text-muted: #565f89;
+    --color-accent: #7aa2f7;
+    --color-accent-hover: #5d8ae8;
+    --color-danger: #f7768e;
+    --color-success: #9ece6a;
+    --color-warning: #e0af68;
+    --color-sidebar: #13131a;
+    --color-sidebar-text: #565f89;
+    --color-sidebar-active: #7aa2f7;
+    --color-status-bg: #16161e;
+  }
+
+  /* ── Tokyo Night Storm ────────────────────── */
+  [data-theme="TokyoNightStorm"] {
+    --color-surface: #24283b;
+    --color-surface-secondary: #1f2335;
+    --color-border: #414868;
+    --color-text: #c0caf5;
+    --color-text-muted: #565f89;
+    --color-accent: #7aa2f7;
+    --color-accent-hover: #5d8ae8;
+    --color-danger: #f7768e;
+    --color-success: #9ece6a;
+    --color-warning: #e0af68;
+    --color-sidebar: #1a1b26;
+    --color-sidebar-text: #565f89;
+    --color-sidebar-active: #7aa2f7;
+    --color-status-bg: #1f2335;
+  }
+
+  /* ── Kanagawa Wave ────────────────────────── */
+  [data-theme="KanagawaWave"] {
+    --color-surface: #1f1f28;
+    --color-surface-secondary: #2a2a37;
+    --color-border: #3b3b4d;
+    --color-text: #dcd7ba;
+    --color-text-muted: #727169;
+    --color-accent: #7e9cd8;
+    --color-accent-hover: #6a8ac5;
+    --color-danger: #e46876;
+    --color-success: #98bb6c;
+    --color-warning: #e6c384;
+    --color-sidebar: #16161d;
+    --color-sidebar-text: #727169;
+    --color-sidebar-active: #7e9cd8;
+    --color-status-bg: #2a2a37;
+  }
+
+  /* ── Kanagawa Dragon ──────────────────────── */
+  [data-theme="KanagawaDragon"] {
+    --color-surface: #181616;
+    --color-surface-secondary: #1f1b1c;
+    --color-border: #393432;
+    --color-text: #c5c9c5;
+    --color-text-muted: #737373;
+    --color-accent: #a292b5;
+    --color-accent-hover: #8d7fa3;
+    --color-danger: #c4746e;
+    --color-success: #87a987;
+    --color-warning: #c4b28a;
+    --color-sidebar: #0f0e0e;
+    --color-sidebar-text: #737373;
+    --color-sidebar-active: #a292b5;
+    --color-status-bg: #1f1b1c;
+  }
+
+  /* ── Moonfly ──────────────────────────────── */
+  [data-theme="Moonfly"] {
+    --color-surface: #080808;
+    --color-surface-secondary: #121212;
+    --color-border: #2e2e2e;
+    --color-text: #bdbdbd;
+    --color-text-muted: #6c6c6c;
+    --color-accent: #80a0ff;
+    --color-accent-hover: #6080e0;
+    --color-danger: #ff5189;
+    --color-success: #8cc85f;
+    --color-warning: #e3c78a;
+    --color-sidebar: #000000;
+    --color-sidebar-text: #6c6c6c;
+    --color-sidebar-active: #80a0ff;
+    --color-status-bg: #121212;
+  }
+
+  /* ── Nightfly ─────────────────────────────── */
+  [data-theme="Nightfly"] {
+    --color-surface: #011627;
+    --color-surface-secondary: #031d36;
+    --color-border: #1d3b53;
+    --color-text: #acb4c2;
+    --color-text-muted: #5a677c;
+    --color-accent: #82aaff;
+    --color-accent-hover: #5c8ae8;
+    --color-danger: #fc514e;
+    --color-success: #a1cd5c;
+    --color-warning: #e7c547;
+    --color-sidebar: #010e1a;
+    --color-sidebar-text: #5a677c;
+    --color-sidebar-active: #82aaff;
+    --color-status-bg: #031d36;
+  }
+
+  /* ── Oxocarbon ────────────────────────────── */
+  [data-theme="Oxocarbon"] {
+    --color-surface: #161616;
+    --color-surface-secondary: #1c1c1c;
+    --color-border: #333333;
+    --color-text: #dde1e6;
+    --color-text-muted: #697077;
+    --color-accent: #33b1ff;
+    --color-accent-hover: #1a9ae0;
+    --color-danger: #ee5396;
+    --color-success: #42be65;
+    --color-warning: #f1c21b;
+    --color-sidebar: #0a0a0a;
+    --color-sidebar-text: #697077;
+    --color-sidebar-active: #33b1ff;
+    --color-status-bg: #1c1c1c;
+  }
+
+  /* ── Ferra ────────────────────────────────── */
+  [data-theme="Ferra"] {
+    --color-surface: #232326;
+    --color-surface-secondary: #2a2a2e;
+    --color-border: #3e3e43;
+    --color-text: #e5e2e0;
+    --color-text-muted: #8c8a8e;
+    --color-accent: #d1a171;
+    --color-accent-hover: #b88a5a;
+    --color-danger: #e06c75;
+    --color-success: #98c379;
+    --color-warning: #e5c07b;
+    --color-sidebar: #18181a;
+    --color-sidebar-text: #8c8a8e;
+    --color-sidebar-active: #d1a171;
+    --color-status-bg: #2a2a2e;
+  }
+
   * {
     border-color: var(--color-border);
   }
@@ -52,25 +414,22 @@
     overflow: hidden;
   }
 
+  html {
+    color-scheme: light dark;
+  }
+
+  select {
+    color-scheme: inherit;
+  }
+
+  select option {
+    background-color: var(--color-surface);
+    color: var(--color-text);
+  }
+
   #root {
     height: 100vh;
     display: flex;
     flex-direction: column;
-  }
-
-  /* Scrollbar styling */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: var(--color-text-muted);
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-accent);
   }
 }

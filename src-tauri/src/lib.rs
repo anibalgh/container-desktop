@@ -1,16 +1,18 @@
 mod commands;
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use tauri::{Emitter, Manager};
+use tokio::sync::Mutex;
 
 use domain::repository::{DockerConnectionRepository, SettingsRepository};
 use infrastructure::{ConfigManager, DockerClient};
 
-/// Application state shared across all Tauri commands.
 pub struct AppState {
     pub docker_client: Arc<DockerClient>,
     pub config_manager: Arc<ConfigManager>,
+    pub exec_inputs: Mutex<HashMap<String, Box<dyn tokio::io::AsyncWrite + Unpin + Send>>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -21,7 +23,6 @@ pub fn run() {
             let config_manager =
                 Arc::new(ConfigManager::new().expect("failed to create config manager"));
 
-            // Load settings — block_on is fine during setup
             let settings = tauri::async_runtime::block_on(config_manager.load_settings())
                 .unwrap_or_default();
 
@@ -30,25 +31,20 @@ pub fn run() {
             let state = AppState {
                 docker_client: docker_client.clone(),
                 config_manager: config_manager.clone(),
+                exec_inputs: Mutex::new(HashMap::new()),
             };
 
             app.manage(state);
 
-            // Attempt initial Docker connection
             let handle = app.handle().clone();
             let dc = docker_client.clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = dc.connect().await {
                     tracing::warn!("Initial Docker connection failed: {e}");
                 }
-                // Emit connection status event
                 match dc.test_connection().await {
-                    Ok(info) => {
-                        let _ = handle.emit("docker-connected", info);
-                    }
-                    Err(e) => {
-                        let _ = handle.emit("docker-error", e.to_string());
-                    }
+                    Ok(info) => { let _ = handle.emit("docker-connected", info); }
+                    Err(e) => { let _ = handle.emit("docker-error", e.to_string()); }
                 }
             });
 
@@ -66,6 +62,10 @@ pub fn run() {
             commands::containers::container_logs,
             commands::containers::inspect_container,
             commands::containers::container_stats,
+            commands::containers::exec_create,
+            commands::containers::exec_start,
+            commands::containers::exec_input,
+            commands::containers::exec_resize,
             commands::images::list_images,
             commands::images::pull_image,
             commands::images::remove_image,
@@ -85,6 +85,7 @@ pub fn run() {
             commands::compose::compose_ps,
             commands::settings::load_settings,
             commands::settings::save_settings,
+            commands::settings::list_fonts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

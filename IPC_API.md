@@ -23,9 +23,13 @@ Streaming commands emit Tauri events.
 | `stop_container` | `id: String` | `()` |
 | `restart_container` | `id: String` | `()` |
 | `remove_container` | `id: String` | `()` |
-| `container_logs` | `id: String, tail: u32?, follow: bool` | **event stream**: `container-log-line` → `LogLine` |
+| `container_logs` | `id: String, tail: u32?, follow: bool, since: i32?, until: i32?` | **event stream**: `container-log-line` → `LogLine` |
 | `inspect_container` | `id: String` | `String` (JSON) |
 | `container_stats` | `id: String` | `ContainerStats` |
+| `exec_create` | `id: String, cmd: Vec<String>` | `String` (exec_id) |
+| `exec_start` | `execIdStr: String` | **event stream**: `exec-output` → `String` |
+| `exec_input` | `execIdStr: String, data: Vec<u8>` | `()` |
+| `exec_resize` | `execIdStr: String, width: u16, height: u16` | `()` |
 
 ## Images
 
@@ -71,6 +75,7 @@ Streaming commands emit Tauri events.
 |---------|--------|---------|
 | `load_settings` | — | `AppSettings` |
 | `save_settings` | `settings: AppSettings` | `()` |
+| `list_fonts` | — | `Vec<String>` |
 
 ---
 
@@ -80,6 +85,13 @@ Frontend subscribes via `listen<T>("event-name", callback)`.
 
 | Event | Payload | Triggered by |
 |-------|---------|-------------|
+| `docker-connected` | `DockerInfo` | Startup connection attempt |
+| `docker-error` | `String` | Startup connection failure |
 | `container-log-line` | `LogLine` | `container_logs` streaming response |
 | `image-pull-progress` | `String` | `pull_image` streaming response |
 | `compose-output` | `LogLine` | `compose_up`, `compose_logs` |
+| `exec-output` | `String` | `exec_start` streaming response |
+
+---
+
+Total: 32 IPC commands + 6 event streams
