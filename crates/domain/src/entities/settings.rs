@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::endpoint::DockerEndpoint;
 use super::security::SecuritySettings;
 
-/// All 23 built-in Iced theme variants.
+/// All 22 built-in theme variants.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ThemeVariant {
     Light,

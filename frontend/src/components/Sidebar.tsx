@@ -21,10 +21,19 @@ interface SidebarProps {
   active: Screen;
   connected: boolean;
   darkMode: boolean;
+  securityDisabled: boolean;
   onNavigate: (screen: Screen) => void;
+  onCleanup: () => void;
 }
 
-export function Sidebar({ active, connected, darkMode, onNavigate }: SidebarProps) {
+export function Sidebar({
+  active,
+  connected,
+  darkMode,
+  securityDisabled,
+  onNavigate,
+  onCleanup,
+}: SidebarProps) {
   const { t } = useI18n();
 
   return (
@@ -48,7 +57,8 @@ export function Sidebar({ active, connected, darkMode, onNavigate }: SidebarProp
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left"
+            disabled={item.id === "security" && securityDisabled}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left disabled:opacity-50"
             style={{
               backgroundColor:
                 active === item.id
@@ -65,6 +75,19 @@ export function Sidebar({ active, connected, darkMode, onNavigate }: SidebarProp
             <span>{t.sidebar.screens[item.id]}</span>
           </button>
         ))}
+        <button
+          onClick={onCleanup}
+          disabled={!connected}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left disabled:opacity-50"
+          style={{
+            backgroundColor: "transparent",
+            color: "var(--color-sidebar-text)",
+            borderLeft: "3px solid transparent",
+          }}
+        >
+          <span className="text-base">🧹</span>
+          <span>{t.sidebar.cleanup}</span>
+        </button>
       </nav>
 
       <div className="px-4 py-3 border-t border-white/10">

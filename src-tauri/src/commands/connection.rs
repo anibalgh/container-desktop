@@ -1,6 +1,5 @@
 use domain::entities::DockerEndpoint;
 use domain::repository::DockerConnectionRepository;
-use std::net::IpAddr;
 use tauri::State;
 
 use crate::AppState;
@@ -41,55 +40,11 @@ fn validate_endpoint_url(url: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn tcp_host(url: &str) -> Result<&str, String> {
-    let authority = url
-        .strip_prefix("tcp://")
-        .ok_or_else(|| "Invalid TCP endpoint".to_string())?
-        .split('/')
-        .next()
-        .unwrap_or_default();
-
-    if authority.is_empty() {
-        return Err("TCP endpoint must include a host".to_string());
-    }
-
-    if authority.starts_with('[') {
-        let end = authority
-            .find(']')
-            .ok_or_else(|| "Invalid IPv6 TCP endpoint".to_string())?;
-        return Ok(&authority[1..end]);
-    }
-
-    Ok(authority
-        .rsplit_once(':')
-        .map(|(host, _)| host)
-        .unwrap_or(authority))
-}
-
-fn is_loopback_host(host: &str) -> bool {
-    if host.eq_ignore_ascii_case("localhost") {
-        return true;
-    }
-
-    host.parse::<IpAddr>()
-        .map(|ip| ip.is_loopback())
-        .unwrap_or(false)
-}
-
 pub(crate) fn validate_docker_endpoint(endpoint: &DockerEndpoint) -> Result<(), String> {
     validate_endpoint_url(&endpoint.host_url)?;
 
     if endpoint.tls_ca.is_some() || endpoint.tls_cert.is_some() || endpoint.tls_key.is_some() {
         return Err("TLS Docker endpoints are not implemented yet".to_string());
-    }
-
-    if endpoint.host_url.starts_with("tcp://") {
-        let host = tcp_host(&endpoint.host_url)?;
-        if !is_loopback_host(host) {
-            return Err(format!(
-                "Plain TCP Docker endpoints must use a local loopback host. Got: {host}"
-            ));
-        }
     }
 
     if endpoint.timeout_secs == 0 {
@@ -188,14 +143,13 @@ mod tests {
     }
 
     #[test]
-    fn remote_tcp_endpoint_rejected() {
+    fn remote_tcp_endpoint_allowed() {
         let endpoint = DockerEndpoint {
             host_url: "tcp://192.168.1.10:2375".into(),
             timeout_secs: 5,
             ..Default::default()
         };
-        let err = validate_docker_endpoint(&endpoint).unwrap_err();
-        assert!(err.contains("loopback"));
+        assert!(validate_docker_endpoint(&endpoint).is_ok());
     }
 
     #[test]
@@ -256,4 +210,24 @@ pub async fn ping(state: State<'_, AppState>) -> Result<bool, String> {
         Ok(()) => Ok(true),
         Err(e) => Err(e.to_string()),
     }
+}
+
+#[tauri::command]
+pub async fn docker_cleanup_summary(
+    state: State<'_, AppState>,
+) -> Result<domain::entities::DockerCleanupSummary, String> {
+    state
+        .docker_client
+        .cleanup_summary()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn docker_system_prune(state: State<'_, AppState>) -> Result<(), String> {
+    state
+        .docker_client
+        .system_prune()
+        .await
+        .map_err(|e| e.to_string())
 }

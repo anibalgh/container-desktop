@@ -3,6 +3,7 @@ mod commands;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use tauri::image::Image;
 use tauri::{Emitter, Manager};
 use tokio::sync::Mutex;
 
@@ -10,6 +11,7 @@ use domain::repository::{DockerConnectionRepository, SettingsRepository};
 use infrastructure::{ConfigManager, DockerClient, SecurityService};
 
 type ExecInputWriter = Arc<Mutex<Box<dyn tokio::io::AsyncWrite + Unpin + Send>>>;
+const APP_ICON_BYTES: &[u8] = include_bytes!("../icons/16x16.png");
 
 pub struct AppState {
     pub docker_client: Arc<DockerClient>,
@@ -21,6 +23,7 @@ pub struct AppState {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let config_manager =
                 Arc::new(ConfigManager::new().expect("failed to create config manager"));
@@ -44,6 +47,11 @@ pub fn run() {
             };
 
             app.manage(state);
+
+            if let Some(window) = app.get_webview_window("main") {
+                let icon = Image::from_bytes(APP_ICON_BYTES).expect("failed to decode app icon");
+                window.set_icon(icon).expect("failed to set app icon");
+            }
 
             let handle = app.handle().clone();
             let dc = docker_client.clone();
@@ -82,6 +90,8 @@ pub fn run() {
             commands::connection::connect,
             commands::connection::test_connection,
             commands::connection::ping,
+            commands::connection::docker_cleanup_summary,
+            commands::connection::docker_system_prune,
             commands::containers::list_containers,
             commands::containers::start_container,
             commands::containers::stop_container,
@@ -93,6 +103,7 @@ pub fn run() {
             commands::containers::exec_create,
             commands::containers::exec_start,
             commands::containers::exec_input,
+            commands::containers::exec_disconnect,
             commands::containers::exec_resize,
             commands::images::list_images,
             commands::images::pull_image,

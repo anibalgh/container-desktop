@@ -52,5 +52,5 @@ There is no frontend test script in `frontend/package.json`; automated test cove
 - Use `frontend/src/i18n` for UI text. Existing screens and shared components read text through `useI18n()` instead of inline literals.
 - Compose support uses `docker compose` via `ComposeClient`, and compose file paths are validated and canonicalized before execution.
 - Input validation is intentionally layered: Tauri commands guard Docker IDs and endpoint URLs, while infrastructure adds stricter resource-level checks such as compose path validation and Docker container-name validation.
-- Plain `tcp://` Docker endpoints are only allowed for loopback/local hosts while TLS support remains unimplemented.
+- Plain `tcp://` Docker endpoints are allowed for localhost and trusted local-network hosts; Settings warns before saving remote TCP and TLS support remains unimplemented.
 - When adding a new Docker resource or capability, update every layer consistently: domain entity/trait, infrastructure implementation, Tauri command and registration, frontend `lib/tauri.ts` wrapper, mirrored frontend types if needed, and the consuming screen/navigation flow.

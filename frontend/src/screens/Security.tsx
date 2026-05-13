@@ -25,6 +25,9 @@ const SEVERITY_COLORS: Record<string, string> = {
   Unknown: "var(--color-text-muted)",
 };
 
+type SecuritySortCol = "image_name" | "total_findings" | "tools" | "last_scanned_at";
+type SortDir = "asc" | "desc";
+
 export function SecurityScreen() {
   const { t } = useI18n();
   const [overview, setOverview] = useState<SecurityOverview | null>(null);
@@ -35,6 +38,9 @@ export function SecurityScreen() {
   const [savingSelection, setSavingSelection] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [installHint, setInstallHint] = useState<SecurityInstallHint | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortCol, setSortCol] = useState<SecuritySortCol>("image_name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const loadOverview = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
@@ -109,6 +115,30 @@ export function SecurityScreen() {
     () => overview?.tools.filter((tool) => tool.selected).map((tool) => tool.tool) ?? [],
     [overview],
   );
+
+  const visibleImages = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = (overview?.images ?? []).filter((image) => {
+      if (!query) return true;
+      return [
+        image.image_name,
+        image.repo_name,
+        image.tag,
+        image.image_id,
+      ].some((value) => value.toLowerCase().includes(query));
+    });
+
+    return [...filtered].sort((left, right) => compareSecurityImages(left, right, sortCol, sortDir));
+  }, [overview?.images, searchQuery, sortCol, sortDir]);
+
+  function toggleSort(nextCol: SecuritySortCol) {
+    if (sortCol === nextCol) {
+      setSortDir((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortCol(nextCol);
+    setSortDir("asc");
+  }
 
   async function persistSelection(nextTools: SecurityTool[]) {
     setSavingSelection(true);
@@ -273,38 +303,37 @@ export function SecurityScreen() {
               </div>
 
               <div className="rounded-lg border overflow-hidden flex flex-col min-h-0" style={{ borderColor: "var(--color-border)" }}>
-                <div className="px-4 py-3 border-b" style={{ borderColor: "var(--color-border)" }}>
+                <div className="px-4 py-3 border-b flex items-center justify-between gap-3" style={{ borderColor: "var(--color-border)" }}>
                   <h2 className="text-sm font-semibold" style={{ color: "var(--color-text)" }}>
                     {t.security.imagesTitle}
                   </h2>
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder={t.security.searchPlaceholder}
+                    className="w-full max-w-sm px-3 py-1.5 text-sm rounded-md border"
+                    style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }}
+                  />
                 </div>
                 <div className="overflow-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr style={{ backgroundColor: "var(--color-surface-secondary)" }}>
-                        <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
-                          {t.security.columns.image}
-                        </th>
-                        <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
-                          {t.security.columns.findings}
-                        </th>
-                        <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
-                          {t.security.columns.tools}
-                        </th>
-                        <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
-                          {t.security.columns.lastScan}
-                        </th>
+                        <SortTh col="image_name" currentCol={sortCol} dir={sortDir} label={t.security.columns.image} onClick={() => toggleSort("image_name")} />
+                        <SortTh col="total_findings" currentCol={sortCol} dir={sortDir} label={t.security.columns.findings} onClick={() => toggleSort("total_findings")} />
+                        <SortTh col="tools" currentCol={sortCol} dir={sortDir} label={t.security.columns.tools} onClick={() => toggleSort("tools")} />
+                        <SortTh col="last_scanned_at" currentCol={sortCol} dir={sortDir} label={t.security.columns.lastScan} onClick={() => toggleSort("last_scanned_at")} />
                       </tr>
                     </thead>
                     <tbody>
-                      {overview.images.length === 0 ? (
+                      {visibleImages.length === 0 ? (
                         <tr>
                           <td colSpan={4} className="px-4 py-12 text-center" style={{ color: "var(--color-text-muted)" }}>
                             {t.security.emptyImages}
                           </td>
                         </tr>
                       ) : (
-                        overview.images.map((image) => (
+                        visibleImages.map((image) => (
                           <tr
                             key={image.image_id}
                             onClick={() => setOpenImageId(image.image_id)}
@@ -601,6 +630,20 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
   );
 }
 
+function SortTh({ col, currentCol, dir, label, onClick }: {
+  col: SecuritySortCol;
+  currentCol: SecuritySortCol;
+  dir: SortDir;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <th onClick={onClick} className="px-4 py-2.5 text-left text-xs uppercase tracking-wider cursor-pointer select-none hover:opacity-80" style={{ color: "var(--color-text-muted)" }}>
+      {label} {currentCol === col ? (dir === "asc" ? "▲" : "▼") : ""}
+    </th>
+  );
+}
+
 function SeverityBar({ bucket, max }: { bucket: SeverityCount; max: number }) {
   const width = max > 0 ? `${Math.max((bucket.count / max) * 100, bucket.count > 0 ? 8 : 0)}%` : "0%";
   return (
@@ -654,4 +697,39 @@ function severityRank(severity: SecurityFinding["severity"]): number {
 
 function shortId(id: string): string {
   return id.startsWith("sha256:") ? id.substring(7, 19) : id.substring(0, 12);
+}
+
+function compareSecurityImages(
+  left: SecurityOverview["images"][number],
+  right: SecurityOverview["images"][number],
+  sortCol: SecuritySortCol,
+  sortDir: SortDir,
+): number {
+  const direction = sortDir === "asc" ? 1 : -1;
+  const value = (() => {
+    switch (sortCol) {
+      case "image_name":
+        return left.image_name.localeCompare(right.image_name);
+      case "total_findings":
+        return left.total_findings - right.total_findings;
+      case "tools":
+        return toolSortValue(left).localeCompare(toolSortValue(right));
+      case "last_scanned_at":
+        return (left.last_scanned_at ?? "").localeCompare(right.last_scanned_at ?? "");
+      default:
+        return 0;
+    }
+  })();
+
+  if (value !== 0) {
+    return value * direction;
+  }
+
+  return left.image_name.localeCompare(right.image_name) * direction;
+}
+
+function toolSortValue(image: SecurityOverview["images"][number]): string {
+  return image.tool_statuses
+    .map((status) => `${status.tool}:${status.state}:${status.findings_count}`)
+    .join("|");
 }

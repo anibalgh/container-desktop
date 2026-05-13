@@ -42,6 +42,7 @@ export function SettingsScreen({
   const [error, setError] = useState<string | null>(null);
   const [fonts, setFonts] = useState<string[]>(["Monospace"]);
   const [showRemoteHelp, setShowRemoteHelp] = useState(false);
+  const [showRemoteTcpWarning, setShowRemoteTcpWarning] = useState(false);
 
   useEffect(() => {
     loadSettings()
@@ -54,8 +55,13 @@ export function SettingsScreen({
       .catch(() => setFonts(["Monospace", "Fira Code", "JetBrains Mono", "Cascadia Code", "Consolas"]));
   }, []);
 
-  async function doSave() {
+  async function doSave(skipRemoteTcpWarning = false) {
     if (!settings) return;
+
+    if (!skipRemoteTcpWarning && requiresRemoteTcpWarning(settings.endpoint.host_url)) {
+      setShowRemoteTcpWarning(true);
+      return;
+    }
 
     setError(null);
 
@@ -132,7 +138,7 @@ export function SettingsScreen({
           {t.settings.title}
         </h1>
         <button
-          onClick={doSave}
+          onClick={() => void doSave()}
           className="px-4 py-2 text-sm rounded-md text-white"
           style={{ backgroundColor: saved ? "var(--color-success)" : "var(--color-accent)" }}
         >
@@ -228,10 +234,10 @@ export function SettingsScreen({
         </p>
         <button
           onClick={() => setShowRemoteHelp(true)}
-          className="mt-2 text-xs underline"
+          className="mt-2 text-xs"
           style={{ color: "var(--color-accent)" }}
         >
-          {t.settings.dockerEndpointRemoteHelpLink}
+          <QuestionLinkText text={t.settings.dockerEndpointRemoteHelpLink} />
         </button>
       </Section>
 
@@ -323,7 +329,80 @@ export function SettingsScreen({
           </div>
         </div>
       )}
+
+      {showRemoteTcpWarning && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+        >
+          <div
+            className="rounded-lg p-6 max-w-xl w-full mx-4 shadow-xl"
+            style={{ backgroundColor: "var(--color-surface)" }}
+          >
+            <h3 className="text-lg font-semibold mb-2" style={{ color: "var(--color-text)" }}>
+              {t.settings.remoteTcpWarning.title}
+            </h3>
+            <p className="text-sm mb-3" style={{ color: "var(--color-text-muted)" }}>
+              {t.settings.remoteTcpWarning.trustedNetwork}
+            </p>
+            <p className="text-sm mb-6" style={{ color: "var(--color-text-muted)" }}>
+              {t.settings.remoteTcpWarning.sshRecommendation}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowRemoteTcpWarning(false)}
+                className="px-4 py-2 text-sm rounded-md border"
+                style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+              >
+                {t.common.cancel}
+              </button>
+              <button
+                onClick={() => {
+                  setShowRemoteTcpWarning(false);
+                  void doSave(true);
+                }}
+                className="px-4 py-2 text-sm rounded-md text-white"
+                style={{ backgroundColor: "var(--color-accent)" }}
+              >
+                {t.settings.remoteTcpWarning.continueSave}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function requiresRemoteTcpWarning(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "tcp:") {
+      return false;
+    }
+
+    return !isLoopbackHost(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isLoopbackHost(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+  return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1";
+}
+
+function QuestionLinkText({ text }: { text: string }) {
+  const leading = text.startsWith("¿") ? "¿" : "";
+  const trailing = text.endsWith("?") ? "?" : "";
+  const core = text.slice(leading ? 1 : 0, trailing ? -1 : undefined);
+
+  return (
+    <>
+      {leading && <span style={{ textDecoration: "none" }}>{leading}</span>}
+      <span style={{ textDecoration: "underline" }}>{core}</span>
+      {trailing && <span style={{ textDecoration: "none" }}>{trailing}</span>}
+    </>
   );
 }
 

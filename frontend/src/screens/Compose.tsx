@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { composeUp, composeDown, onComposeOutput, onComposeStatus } from "../lib/tauri";
 import type { LogLine } from "../lib/types";
 import { useI18n } from "../i18n";
@@ -61,6 +62,24 @@ export function ComposeScreen() {
     }
   }
 
+  async function chooseComposeFile() {
+    const selected = await open({
+      multiple: false,
+      directory: false,
+      filters: [
+        {
+          name: "Compose",
+          extensions: ["yml", "yaml"],
+        },
+      ],
+    });
+
+    if (typeof selected === "string") {
+      setFilePath(selected);
+      setError(null);
+    }
+  }
+
   return (
     <div className="p-6 h-full flex flex-col">
       <h1 className="text-xl font-semibold mb-4" style={{ color: "var(--color-text)" }}>{t.compose.title}</h1>
@@ -83,6 +102,18 @@ export function ComposeScreen() {
             }}
           />
         </div>
+        <button
+          onClick={() => void chooseComposeFile()}
+          disabled={running}
+          className="px-4 py-2 text-sm rounded-md border disabled:opacity-50"
+          style={{
+            borderColor: "var(--color-border)",
+            backgroundColor: "var(--color-surface-secondary)",
+            color: "var(--color-text)",
+          }}
+        >
+          {t.compose.browse}
+        </button>
         <button
           onClick={doUp}
           disabled={running || !filePath.trim()}

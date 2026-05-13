@@ -20,6 +20,15 @@ pub struct DockerEndpoint {
     pub timeout_secs: u64,
 }
 
+/// Summary of reclaimable Docker disk usage.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DockerCleanupSummary {
+    /// Total reclaimable size in bytes.
+    pub reclaimable_bytes: u64,
+    /// Total reclaimable size normalized to megabytes.
+    pub reclaimable_mb: f64,
+}
+
 impl Default for DockerEndpoint {
     fn default() -> Self {
         Self {

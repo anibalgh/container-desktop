@@ -18,7 +18,7 @@ import type {
   ThemeSetting,
   ThemeVariant,
 } from "./lib/types";
-import { loadSettings } from "./lib/tauri";
+import { dockerCleanupSummary, dockerSystemPrune, loadSettings } from "./lib/tauri";
 import { I18nProvider, resolveLanguage, useI18n } from "./i18n";
 
 const DARK_VARIANTS: ThemeVariant[] = [
@@ -195,13 +195,53 @@ function AppShell({
   const [activeScreen, setActiveScreen] = useState<Screen>("dashboard");
   const [dockerInfo, setDockerInfo] = useState<DockerInfo | null>(null);
   const [dockerError, setDockerError] = useState<string | null>(null);
+  const [cleanupOpen, setCleanupOpen] = useState(false);
+  const [cleanupError, setCleanupError] = useState<string | null>(null);
+  const [cleanupRunning, setCleanupRunning] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<string | null>(null);
 
   const connected = dockerInfo !== null;
+  const securityDisabled = isRemoteTcpEndpoint(dockerInfo?.endpoint);
 
   const handleConnectionChange = useCallback((info: DockerInfo | null, error?: string) => {
     setDockerInfo(info);
     setDockerError(info ? null : (error ?? null));
+    if (isRemoteTcpEndpoint(info?.endpoint)) {
+      setActiveScreen((current) => (current === "security" ? "dashboard" : current));
+    }
   }, []);
+
+  const handleOpenCleanup = useCallback(() => {
+    setCleanupOpen(true);
+    setCleanupResult(null);
+    setCleanupError(null);
+  }, []);
+
+  const handleCloseCleanup = useCallback(() => {
+    setCleanupOpen(false);
+    setCleanupResult(null);
+    setCleanupError(null);
+  }, []);
+
+  const handleRunCleanup = useCallback(async () => {
+    setCleanupRunning(true);
+    setCleanupError(null);
+
+    try {
+      const beforeSummary = await dockerCleanupSummary();
+      await dockerSystemPrune();
+      const afterSummary = await dockerCleanupSummary();
+      const freedBytes = Math.max(
+        0,
+        beforeSummary.reclaimable_bytes - afterSummary.reclaimable_bytes,
+      );
+      setCleanupResult(t.dashboard.cleanup.cleanedAmount(formatMb(freedBytes)));
+    } catch (error) {
+      setCleanupError(String(error));
+    } finally {
+      setCleanupRunning(false);
+    }
+  }, [t.dashboard.cleanup]);
 
   function renderScreen() {
     switch (activeScreen) {
@@ -239,7 +279,9 @@ function AppShell({
         active={activeScreen}
         connected={connected}
         darkMode={isDark(themeVariant)}
+        securityDisabled={securityDisabled}
         onNavigate={setActiveScreen}
+        onCleanup={handleOpenCleanup}
       />
       <div className="flex-1 flex flex-col min-w-0">
         <main className="flex-1 overflow-auto">{renderScreen()}</main>
@@ -250,6 +292,69 @@ function AppShell({
           connectionError={dockerError}
         />
       </div>
+      {cleanupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <div className="w-full max-w-md mx-4 rounded-lg p-6 shadow-xl" style={{ backgroundColor: "var(--color-surface)" }}>
+            <h3 className="text-lg font-semibold mb-2" style={{ color: "var(--color-text)" }}>
+              {t.dashboard.cleanup.confirmTitle}
+            </h3>
+            {cleanupError ? (
+              <p className="text-sm mb-4" style={{ color: "var(--color-danger)" }}>
+                {cleanupError}
+              </p>
+            ) : cleanupResult ? (
+              <p className="text-sm mb-4" style={{ color: "var(--color-success)" }}>
+                {cleanupResult}
+              </p>
+            ) : (
+              <p className="text-sm mb-4" style={{ color: "var(--color-text-muted)" }}>
+                {t.dashboard.cleanup.confirmMessage}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={handleCloseCleanup}
+                className="px-4 py-2 text-sm rounded-md border"
+                style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+              >
+                {cleanupResult ? t.common.dismiss : t.common.cancel}
+              </button>
+              {!cleanupResult && (
+                <button
+                  onClick={() => void handleRunCleanup()}
+                  disabled={cleanupRunning}
+                  className="px-4 py-2 text-sm rounded-md text-white disabled:opacity-50"
+                  style={{ backgroundColor: "var(--color-danger)" }}
+                >
+                  {cleanupRunning ? t.dashboard.cleanup.pruning : t.dashboard.cleanup.prune}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function formatMb(bytes: number): string {
+  return `${(bytes / 1_000_000).toFixed(1)} MB`;
+}
+
+function isRemoteTcpEndpoint(endpoint: string | undefined): boolean {
+  if (!endpoint) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(endpoint);
+    return parsed.protocol === "tcp:" && !isLoopbackHost(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isLoopbackHost(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+  return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1";
 }

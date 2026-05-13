@@ -19,6 +19,7 @@ export interface Messages {
       | "about",
       string
     >;
+    cleanup: string;
     connected: string;
     disconnected: string;
   };
@@ -36,9 +37,12 @@ export interface Messages {
     creating: string;
     remove: string;
     connect: string;
+    disconnect: string;
+    copy: string;
     load: string;
     loading: string;
     notAvailable: string;
+    search: string;
   };
   dashboard: {
     connecting: string;
@@ -62,7 +66,18 @@ export interface Messages {
       scannedImages: (count: number) => string;
       scannedImagesLabel: string;
       vulnerabilitiesBySeverity: string;
+      countLabel: string;
       noResults: string;
+    };
+    cleanup: {
+      title: string;
+      reclaimableSpace: string;
+      noGarbage: string;
+      prune: string;
+      pruning: string;
+      confirmTitle: string;
+      confirmMessage: string;
+      cleanedAmount: (amount: string) => string;
     };
   };
   settings: {
@@ -99,6 +114,12 @@ export interface Messages {
       localCommand: string;
       configString: string;
     };
+    remoteTcpWarning: {
+      title: string;
+      trustedNetwork: string;
+      sshRecommendation: string;
+      continueSave: string;
+    };
     fontSizes: {
       normal: string;
       large: string;
@@ -122,6 +143,7 @@ export interface Messages {
     title: string;
     filePathLabel: string;
     filePathPlaceholder: string;
+    browse: string;
     up: string;
     down: string;
     emptyState: string;
@@ -172,6 +194,7 @@ export interface Messages {
       commandPlaceholder: string;
       empty: string;
       inputPlaceholder: string;
+      copy: string;
     };
     stats: {
       refresh: string;
@@ -197,12 +220,23 @@ export interface Messages {
       repository: string;
       tag: string;
       imageId: string;
+      usage: string;
       size: string;
       created: string;
       actions: string;
     };
     empty: string;
     none: string;
+    filterLabel: string;
+    searchPlaceholder: string;
+    selectionMode: string;
+    exitSelectionMode: string;
+    selectAllFiltered: string;
+    clearSelection: string;
+    selectedCount: (count: number) => string;
+    removeSelected: string;
+    inUse: (count: number) => string;
+    unused: string;
     pullDialog: {
       title: string;
       imageName: string;
@@ -215,6 +249,8 @@ export interface Messages {
     confirmRemove: {
       title: string;
       message: (name: string) => string;
+      bulkTitle: string;
+      bulkMessage: (count: number) => string;
     };
   };
   security: {
@@ -230,6 +266,7 @@ export interface Messages {
     installHint: string;
     emptyImages: string;
     noFindings: string;
+    searchPlaceholder: string;
     summary: {
       totalImages: string;
       scannedImages: string;
@@ -319,6 +356,7 @@ export const en: Messages = {
       settings: "Settings",
       about: "About",
     },
+    cleanup: "Cleanup",
     connected: "Connected",
     disconnected: "Disconnected",
   },
@@ -336,9 +374,12 @@ export const en: Messages = {
     creating: "Creating...",
     remove: "Remove",
     connect: "Connect",
+    disconnect: "Disconnect",
+    copy: "Copy",
     load: "Load",
     loading: "Loading...",
     notAvailable: "—",
+    search: "Search",
   },
   dashboard: {
     connecting: "Connecting to Docker...",
@@ -362,7 +403,19 @@ export const en: Messages = {
       scannedImages: (count) => `${count} scanned image${count === 1 ? "" : "s"}`,
       scannedImagesLabel: "Scanned images",
       vulnerabilitiesBySeverity: "Vulnerabilities by severity",
+      countLabel: "Count",
       noResults: "No current security summary is available.",
+    },
+    cleanup: {
+      title: "Docker cleanup",
+      reclaimableSpace: "Reclaimable Docker garbage",
+      noGarbage: "No reclaimable Docker garbage was detected.",
+      prune: "Clean Docker",
+      pruning: "Cleaning...",
+      confirmTitle: "Clean Docker data",
+      confirmMessage:
+        "Run docker system prune now? This removes stopped containers, unused networks, dangling images, and build cache.",
+      cleanedAmount: (amount) => `Cleanup completed. Freed ${amount}.`,
     },
   },
   settings: {
@@ -385,11 +438,11 @@ export const en: Messages = {
       auto: "Auto (OS)",
       manual: "Manual",
     },
-    dockerEndpointHint: "Local example: unix:///var/run/docker.sock",
+    dockerEndpointHint: "Local example: unix:///var/run/docker.sock | Trusted LAN example: tcp://192.168.0.25:2375",
     dockerEndpointRemoteHelpLink: "Need remote connection instructions?",
     dockerEndpointRemoteHelp: {
       title: "Connect to a remote Docker host",
-      intro: "Remote hosts are not connected directly. Create a local SSH tunnel to the remote Docker socket and then point the app to the forwarded local TCP endpoint.",
+      intro: "Direct tcp:// connections to Docker daemons on a trusted local network are supported. For stronger protection, prefer an SSH tunnel with port forwarding so the Docker socket stays bound to remote loopback.",
       installLabel: "Install socat on the remote machine",
       remoteCommandLabel: "Run this on the remote machine",
       localCommandLabel: "Run this on your local machine",
@@ -403,6 +456,12 @@ export const en: Messages = {
       remoteCommand: "socat TCP-LISTEN:2375,bind=127.0.0.1,fork UNIX-CONNECT:/var/run/docker.sock",
       localCommand: "ssh -N -L 23750:127.0.0.1:2375 usuario@192.168.0.135",
       configString: "tcp://127.0.0.1:23750",
+    },
+    remoteTcpWarning: {
+      title: "Save trusted-LAN TCP endpoint?",
+      trustedNetwork: "Only use direct tcp:// Docker endpoints on local networks you trust. Plain TCP does not provide transport security.",
+      sshRecommendation: "For better security, prefer SSH with port forwarding and keep the remote Docker socket bound to loopback.",
+      continueSave: "Save anyway",
     },
     fontSizes: {
       normal: "Normal",
@@ -431,6 +490,7 @@ export const en: Messages = {
     title: "Docker Compose",
     filePathLabel: "Compose File Path",
     filePathPlaceholder: "/path/to/docker-compose.yml",
+    browse: "Browse...",
     up: "Up",
     down: "Down",
     emptyState: "Enter a compose file path and click Up to start.",
@@ -480,6 +540,7 @@ export const en: Messages = {
       commandPlaceholder: "ls -la /",
       empty: "Click Connect to start terminal.",
       inputPlaceholder: "Type a command...",
+      copy: "Copy output",
     },
     stats: {
       refresh: "Refresh Stats",
@@ -505,12 +566,23 @@ export const en: Messages = {
       repository: "Repository",
       tag: "Tag",
       imageId: "Image ID",
+      usage: "Usage",
       size: "Size",
       created: "Created",
       actions: "Actions",
     },
     empty: "No images found.",
     none: "<none>",
+    filterLabel: "Filter list:",
+    searchPlaceholder: "Filter images by repository, tag, or ID",
+    selectionMode: "Multi-select",
+    exitSelectionMode: "Done selecting",
+    selectAllFiltered: "Select visible",
+    clearSelection: "Clear",
+    selectedCount: (count) => `${count} selected`,
+    removeSelected: "Remove selected",
+    inUse: (count) => `Used by ${count} container${count === 1 ? "" : "s"}`,
+    unused: "Unused",
     pullDialog: {
       title: "Pull Image",
       imageName: "Image Name",
@@ -523,6 +595,8 @@ export const en: Messages = {
     confirmRemove: {
       title: "Remove Image",
       message: (name) => `Remove ${name}?`,
+      bulkTitle: "Remove images",
+      bulkMessage: (count) => `Remove ${count} selected images?`,
     },
   },
   security: {
@@ -539,6 +613,7 @@ export const en: Messages = {
     installHint: "Click to view installation instructions for this OS.",
     emptyImages: "No Docker images are available to scan.",
     noFindings: "No findings",
+    searchPlaceholder: "Filter images by name, tag, or ID",
     summary: {
       totalImages: "Total images",
       scannedImages: "Images with stored results",
@@ -633,6 +708,7 @@ export const es: Messages = {
       settings: "Configuración",
       about: "Acerca de",
     },
+    cleanup: "Limpieza",
     connected: "Conectado",
     disconnected: "Desconectado",
   },
@@ -650,9 +726,12 @@ export const es: Messages = {
     creating: "Creando...",
     remove: "Eliminar",
     connect: "Conectar",
+    disconnect: "Desconectar",
+    copy: "Copiar",
     load: "Cargar",
     loading: "Cargando...",
     notAvailable: "—",
+    search: "Buscar",
   },
   dashboard: {
     connecting: "Conectando con Docker...",
@@ -676,7 +755,19 @@ export const es: Messages = {
       scannedImages: (count) => `${count} imagen${count === 1 ? "" : "es"} escaneada${count === 1 ? "" : "s"}`,
       scannedImagesLabel: "Imágenes escaneadas",
       vulnerabilitiesBySeverity: "Vulnerabilidades por severidad",
+      countLabel: "Cantidad",
       noResults: "No hay un resumen de seguridad disponible actualmente.",
+    },
+    cleanup: {
+      title: "Limpieza de Docker",
+      reclaimableSpace: "Basura Docker recuperable",
+      noGarbage: "No se detectó basura Docker recuperable.",
+      prune: "Limpiar Docker",
+      pruning: "Limpiando...",
+      confirmTitle: "Limpiar datos de Docker",
+      confirmMessage:
+        "¿Ejecutar docker system prune ahora? Esto elimina contenedores detenidos, redes sin uso, imágenes colgantes y caché de compilación.",
+      cleanedAmount: (amount) => `Limpieza completada. Se liberaron ${amount}.`,
     },
   },
   settings: {
@@ -699,11 +790,11 @@ export const es: Messages = {
       auto: "Automático (SO)",
       manual: "Manual",
     },
-    dockerEndpointHint: "Ejemplo local: unix:///var/run/docker.sock",
+    dockerEndpointHint: "Ejemplo local: unix:///var/run/docker.sock | Ejemplo LAN confiable: tcp://192.168.0.25:2375",
     dockerEndpointRemoteHelpLink: "¿Necesitas instrucciones para conexión remota?",
     dockerEndpointRemoteHelp: {
       title: "Conectarse a un Docker remoto",
-      intro: "Los hosts remotos no se conectan directamente. Crea primero un túnel SSH local hacia el socket Docker remoto y luego apunta la app al endpoint TCP local reenviado.",
+      intro: "Las conexiones directas tcp:// a daemons Docker en una LAN de confianza están permitidas. Para mayor seguridad, prefiere un túnel SSH con port forwarding para que el socket Docker remoto permanezca ligado al loopback remoto.",
       installLabel: "Instala socat en la máquina remota",
       remoteCommandLabel: "Ejecuta esto en la máquina remota",
       localCommandLabel: "Ejecuta esto en tu máquina local",
@@ -717,6 +808,12 @@ export const es: Messages = {
       remoteCommand: "socat TCP-LISTEN:2375,bind=127.0.0.1,fork UNIX-CONNECT:/var/run/docker.sock",
       localCommand: "ssh -N -L 23750:127.0.0.1:2375 usuario@192.168.0.135",
       configString: "tcp://127.0.0.1:23750",
+    },
+    remoteTcpWarning: {
+      title: "¿Guardar endpoint TCP de LAN confiable?",
+      trustedNetwork: "Usa endpoints Docker tcp:// directos solo en redes locales de confianza. TCP plano no ofrece seguridad de transporte.",
+      sshRecommendation: "Para mayor seguridad, prefiere SSH con port forwarding y mantén el socket Docker remoto ligado al loopback.",
+      continueSave: "Guardar de todos modos",
     },
     fontSizes: {
       normal: "Normal",
@@ -745,6 +842,7 @@ export const es: Messages = {
     title: "Docker Compose",
     filePathLabel: "Ruta del archivo Compose",
     filePathPlaceholder: "/ruta/al/docker-compose.yml",
+    browse: "Buscar...",
     up: "Levantar",
     down: "Bajar",
     emptyState:
@@ -795,6 +893,7 @@ export const es: Messages = {
       commandPlaceholder: "ls -la /",
       empty: "Haz clic en Conectar para iniciar la terminal.",
       inputPlaceholder: "Escribe un comando...",
+      copy: "Copiar salida",
     },
     stats: {
       refresh: "Actualizar estadísticas",
@@ -820,12 +919,23 @@ export const es: Messages = {
       repository: "Repositorio",
       tag: "Tag",
       imageId: "ID de imagen",
+      usage: "Uso",
       size: "Tamaño",
       created: "Creada",
       actions: "Acciones",
     },
     empty: "No se encontraron imágenes.",
     none: "<ninguna>",
+    filterLabel: "Filtro de la lista:",
+    searchPlaceholder: "Filtra imágenes por repositorio, tag o ID",
+    selectionMode: "Selección múltiple",
+    exitSelectionMode: "Terminar selección",
+    selectAllFiltered: "Seleccionar visibles",
+    clearSelection: "Limpiar",
+    selectedCount: (count) => `${count} seleccionada${count === 1 ? "" : "s"}`,
+    removeSelected: "Eliminar seleccionadas",
+    inUse: (count) => `Usada por ${count} contenedor${count === 1 ? "" : "es"}`,
+    unused: "Sin uso",
     pullDialog: {
       title: "Descargar imagen",
       imageName: "Nombre de imagen",
@@ -838,6 +948,8 @@ export const es: Messages = {
     confirmRemove: {
       title: "Eliminar imagen",
       message: (name) => `¿Eliminar ${name}?`,
+      bulkTitle: "Eliminar imágenes",
+      bulkMessage: (count) => `¿Eliminar ${count} imágenes seleccionadas?`,
     },
   },
   security: {
@@ -854,6 +966,7 @@ export const es: Messages = {
     installHint: "Haz clic para ver instrucciones de instalación para este sistema operativo.",
     emptyImages: "No hay imágenes Docker disponibles para analizar.",
     noFindings: "Sin hallazgos",
+    searchPlaceholder: "Filtra imágenes por nombre, tag o ID",
     summary: {
       totalImages: "Imágenes totales",
       scannedImages: "Imágenes con resultados guardados",

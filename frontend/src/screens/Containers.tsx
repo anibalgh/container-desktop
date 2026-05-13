@@ -3,7 +3,7 @@ import type { Container, ContainerStats } from "../lib/types";
 import {
   listContainers, startContainer, stopContainer, restartContainer, removeContainer,
   containerLogs, onContainerLogLine, onContainerLogStatus, containerStats,
-  execCreate, execStart, execInput, onExecOutput, onExecStatus,
+  execCreate, execStart, execInput, execDisconnect, onExecOutput, onExecStatus,
 } from "../lib/tauri";
 import { useI18n } from "../i18n";
 
@@ -74,7 +74,11 @@ export function ContainersScreen() {
   const [termOutput, setTermOutput] = useState("");
   const [termInput, setTermInput] = useState("");
   const [termConnected, setTermConnected] = useState(false);
+  const [termConnecting, setTermConnecting] = useState(false);
   const [termExecId, setTermExecId] = useState<string | null>(null);
+  const [termSessionRoot, setTermSessionRoot] = useState(false);
+  const [termSessionMode, setTermSessionMode] = useState<"interactive" | "command" | null>(null);
+  const [termCanCopy, setTermCanCopy] = useState(false);
   const termUnlisten = useRef<(() => void) | null>(null);
   const termStatusUnlisten = useRef<(() => void) | null>(null);
 
@@ -101,6 +105,21 @@ export function ContainersScreen() {
       termStatusUnlisten.current?.();
     };
   }, []);
+
+  useEffect(() => {
+    setTermConnected(false);
+    setTermConnecting(false);
+    setTermExecId(null);
+    setTermSessionRoot(false);
+    setTermSessionMode(null);
+    setTermOutput("");
+    setTermInput("");
+    setTermCanCopy(false);
+    termUnlisten.current?.();
+    termUnlisten.current = null;
+    termStatusUnlisten.current?.();
+    termStatusUnlisten.current = null;
+  }, [selected]);
 
   async function doAction(id: string, name: string, action: string) {
     setActionLoading(id);
@@ -155,10 +174,10 @@ export function ContainersScreen() {
 
   // ── Terminal ──
   async function connectTerminal() {
-    if (!selected) return;
+    if (!selected || termConnecting || termConnected) return;
     termUnlisten.current?.();
     termStatusUnlisten.current?.();
-    setTermOutput(""); setTermConnected(false);
+    setTermOutput(""); setTermConnected(false); setTermConnecting(true); setTermCanCopy(false);
     const requestId = crypto.randomUUID();
     const cmd: string[] = [];
     if (termRoot) cmd.push("-u", "root");
@@ -168,20 +187,34 @@ export function ContainersScreen() {
       cmd.push("-c", termCmd.trim());
     }
     // Use docker exec via command for simplicity
-    setTermOutput((prev) => appendCappedText(prev, `$ docker exec ${cmd.join(" ")}\n`, MAX_TERMINAL_LINES));
+    setTermOutput((prev) => appendCappedText(prev, `${termRoot ? "#" : "$"} docker exec ${cmd.join(" ")}\n`, MAX_TERMINAL_LINES));
 
     const unlisten = await onExecOutput((event) => {
       if (event.requestId !== requestId) return;
+      if (event.text.trim().length > 0) {
+        setTermCanCopy(true);
+      }
       setTermOutput((prev) => appendCappedText(prev, event.text, MAX_TERMINAL_LINES));
     });
     const statusUnlisten = await onExecStatus((event) => {
       if (event.requestId !== requestId) return;
+      if (event.status === "started") {
+        setTermConnecting(false);
+        setTermConnected(true);
+        return;
+      }
       if (event.status === "failed") {
+        setTermConnecting(false);
         setTermConnected(false);
+        setTermExecId(null);
+        setTermSessionMode(null);
         setTermOutput((prev) => appendCappedText(prev, `\nError: ${event.error ?? "Exec failed"}\n`, MAX_TERMINAL_LINES));
       }
-      if (event.status === "completed" && termMode !== "interactive") {
+      if (event.status === "completed") {
+        setTermConnecting(false);
         setTermConnected(false);
+        setTermExecId(null);
+        setTermSessionMode(null);
       }
     });
     termUnlisten.current = unlisten;
@@ -192,20 +225,51 @@ export function ContainersScreen() {
         ? [termShell, "-c", termCmd.trim()]
         : [termShell], termRoot ? "root" : null);
       setTermExecId(execId);
+      setTermSessionRoot(termRoot);
+      setTermSessionMode(termMode);
       await execStart(execId, requestId);
-      setTermConnected(termMode === "interactive");
     } catch (e) {
+      setTermConnecting(false);
+      setTermExecId(null);
+      setTermSessionMode(null);
+      setTermCanCopy(false);
       setTermOutput((prev) => appendCappedText(prev, `Error: ${e}\n`, MAX_TERMINAL_LINES));
+    }
+  }
+
+  async function disconnectTerminal() {
+    const execId = termExecId;
+    termUnlisten.current?.();
+    termUnlisten.current = null;
+    termStatusUnlisten.current?.();
+    termStatusUnlisten.current = null;
+    setTermConnected(false);
+    setTermConnecting(false);
+    setTermExecId(null);
+    setTermSessionMode(null);
+    setTermCanCopy(termOutput.trim().length > 0);
+    if (execId) {
+      try { await execDisconnect(execId); }
+      catch (e) { setError(String(e)); }
     }
   }
 
   async function sendTermInput() {
     if (!termExecId || !termInput.trim()) return;
     const data = new TextEncoder().encode(termInput + "\n");
-    setTermOutput((prev) => appendCappedText(prev, `$ ${termInput}\n`, MAX_TERMINAL_LINES));
+    setTermOutput((prev) => appendCappedText(prev, `${termSessionRoot ? "#" : "$"} ${termInput}\n`, MAX_TERMINAL_LINES));
     setTermInput("");
     try { await execInput(termExecId, Array.from(data)); }
     catch (e) { setError(String(e)); }
+  }
+
+  async function copyTerminalOutput() {
+    if (!termCanCopy || !termOutput.trim()) return;
+    try {
+      await navigator.clipboard.writeText(termOutput);
+    } catch (e) {
+      setError(String(e));
+    }
   }
 
   // ── Stats ──
@@ -221,6 +285,8 @@ export function ContainersScreen() {
     switch (state) { case "Running": return "var(--color-success)"; case "Exited": return "var(--color-danger)"; case "Paused": return "var(--color-warning)"; default: return "var(--color-text-muted)"; }
   };
   const shortId = (id: string) => id.substring(0, 12);
+  const terminalLocked = termConnecting || termConnected;
+  const terminalPrompt = termSessionRoot ? "#" : "$";
 
   if (loading) return <div className="flex items-center justify-center h-full"><div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} /></div>;
 
@@ -307,21 +373,22 @@ export function ContainersScreen() {
           {tab === "terminal" && (
             <div className="p-2 flex flex-col" style={{ maxHeight: "calc(40vh - 40px)" }}>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <select value={termShell} onChange={(e) => setTermShell(e.target.value)} className="px-2 py-1 text-xs rounded border" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }}>
+                <select disabled={terminalLocked} value={termShell} onChange={(e) => setTermShell(e.target.value)} className="px-2 py-1 text-xs rounded border disabled:opacity-60" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }}>
                   {["sh", "bash", "zsh", "ash", "dash"].map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input type="checkbox" checked={termRoot} onChange={(e) => setTermRoot(e.target.checked)} /> {t.containers.terminal.root}</label>
-                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input type="radio" name="mode" checked={termMode === "interactive"} onChange={() => setTermMode("interactive")} /> {t.containers.terminal.interactive}</label>
-                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input type="radio" name="mode" checked={termMode === "command"} onChange={() => setTermMode("command")} /> {t.containers.terminal.command}</label>
-                {termMode === "command" && <input value={termCmd} onChange={(e) => setTermCmd(e.target.value)} placeholder={t.containers.terminal.commandPlaceholder} className="px-2 py-1 text-xs rounded border flex-1" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }} />}
-                <button onClick={connectTerminal} className="px-2 py-1 text-xs rounded text-white" style={{ backgroundColor: "var(--color-accent)" }}>{t.common.connect}</button>
+                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input disabled={terminalLocked} type="checkbox" checked={termRoot} onChange={(e) => setTermRoot(e.target.checked)} /> {t.containers.terminal.root}</label>
+                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input disabled={terminalLocked} type="radio" name="mode" checked={termMode === "interactive"} onChange={() => setTermMode("interactive")} /> {t.containers.terminal.interactive}</label>
+                <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input disabled={terminalLocked} type="radio" name="mode" checked={termMode === "command"} onChange={() => setTermMode("command")} /> {t.containers.terminal.command}</label>
+                {termMode === "command" && <input disabled={terminalLocked} value={termCmd} onChange={(e) => setTermCmd(e.target.value)} placeholder={t.containers.terminal.commandPlaceholder} className="px-2 py-1 text-xs rounded border flex-1 disabled:opacity-60" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }} />}
+                {termCanCopy && <button onClick={() => { void copyTerminalOutput(); }} className="px-2 py-1 text-xs rounded border" style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}>{t.containers.terminal.copy}</button>}
+                <button onClick={() => { void (termConnected ? disconnectTerminal() : connectTerminal()); }} disabled={termConnecting} className="px-2 py-1 text-xs rounded text-white disabled:opacity-60" style={{ backgroundColor: termConnected ? "var(--color-danger)" : "var(--color-accent)" }}>{termConnected ? t.common.disconnect : termConnecting ? t.common.loading : t.common.connect}</button>
               </div>
               <div className="flex-1 overflow-auto font-mono text-xs rounded p-2 whitespace-pre-wrap" style={{ backgroundColor: "#0d1117", color: "#c9d1d9", minHeight: "60px" }}>
                 {termOutput || <span style={{ color: "#8b949e" }}>{t.containers.terminal.empty}</span>}
               </div>
-              {termConnected && (
+              {termConnected && termSessionMode === "interactive" && (
                 <div className="flex items-center gap-2 mt-1">
-                  <span style={{ color: "var(--color-accent)" }}>$</span>
+                  <span style={{ color: "var(--color-accent)" }}>{terminalPrompt}</span>
                   <input value={termInput} onChange={(e) => setTermInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") sendTermInput(); }}
                     placeholder={t.containers.terminal.inputPlaceholder}

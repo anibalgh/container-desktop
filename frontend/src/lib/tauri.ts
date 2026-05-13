@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
-  DockerInfo, Container, Image, Volume, Network,
+  DockerInfo, DockerCleanupSummary, Container, Image, Volume, Network,
   ContainerStats, DockerEndpoint, AppSettings, LogStreamEvent,
   ProgressStreamEvent, StreamStatusEvent, TextStreamEvent,
   SecurityOverview, ImageSecurityReport, SecurityTool, SecurityScanProgressEvent,
@@ -16,6 +16,12 @@ export async function testConnection(): Promise<DockerInfo> {
 }
 export async function ping(): Promise<boolean> {
   return invoke("ping");
+}
+export async function dockerCleanupSummary(): Promise<DockerCleanupSummary> {
+  return invoke("docker_cleanup_summary");
+}
+export async function dockerSystemPrune(): Promise<void> {
+  return invoke("docker_system_prune");
 }
 
 // ─── Containers ────────────────────────────────────────────
@@ -67,6 +73,9 @@ export async function execStart(execId: string, requestId: string): Promise<void
 }
 export async function execInput(execId: string, data: number[]): Promise<void> {
   return invoke("exec_input", { execIdStr: execId, data });
+}
+export async function execDisconnect(execId: string): Promise<void> {
+  return invoke("exec_disconnect", { execIdStr: execId });
 }
 export async function execResize(execId: string, w: number, h: number): Promise<void> {
   return invoke("exec_resize", { execIdStr: execId, width: w, height: h });

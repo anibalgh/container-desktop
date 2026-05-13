@@ -175,13 +175,14 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
         />
       </div>
 
-      <div className="rounded-lg border p-6 mb-8"
-        style={{ backgroundColor: "var(--color-surface-secondary)" }}>
-        <div className="flex items-center justify-between gap-4 mb-4">
+      <div className="rounded-lg border p-4 mb-8" style={{ backgroundColor: "var(--color-surface-secondary)" }}>
+        <div
+          className="flex items-center justify-between gap-4 mb-4"
+        >
           <h2 className="text-lg font-medium" style={{ color: "var(--color-text)" }}>
             {t.dashboard.security.title}
           </h2>
-          <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+          <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
             {t.dashboard.security.scannedImages(securitySummary?.scanned_images ?? 0)}
           </span>
         </div>
@@ -194,27 +195,34 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
             {t.dashboard.security.noResults}
           </p>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
-            <div className="rounded-lg border p-4"
-              style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}>
-              <div className="text-xs uppercase tracking-wide mb-1"
-                style={{ color: "var(--color-text-muted)" }}>
-                {t.dashboard.security.scannedImagesLabel}
-              </div>
-              <div className="text-3xl font-semibold" style={{ color: "var(--color-accent)" }}>
-                {securitySummary.scanned_images}
-              </div>
+          <div className="space-y-4">
+            <div className="rounded-lg border overflow-hidden" style={{ borderColor: "var(--color-border)" }}>
+              <table className="w-full text-sm">
+                <tbody>
+                  <SummaryRow label={t.security.summary.totalImages} value={securitySummary.total_images} />
+                  <SummaryRow label={t.dashboard.security.scannedImagesLabel} value={securitySummary.scanned_images} />
+                  <SummaryRow label={t.security.summary.imagesWithFindings} value={securitySummary.images_with_findings} />
+                </tbody>
+              </table>
             </div>
-            <div>
-              <div className="text-xs uppercase tracking-wide mb-3"
-                style={{ color: "var(--color-text-muted)" }}>
-                {t.dashboard.security.vulnerabilitiesBySeverity}
-              </div>
-              <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
-                {securitySummary.findings_by_severity.map((bucket) => (
-                  <SeveritySummaryCard key={bucket.severity} bucket={bucket} />
-                ))}
-              </div>
+            <div className="rounded-lg border overflow-hidden" style={{ borderColor: "var(--color-border)" }}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ backgroundColor: "var(--color-surface)" }}>
+                    <th className="px-4 py-2 text-left text-xs uppercase tracking-wide" style={{ color: "var(--color-text-muted)" }}>
+                      {t.dashboard.security.vulnerabilitiesBySeverity}
+                    </th>
+                    <th className="px-4 py-2 text-right text-xs uppercase tracking-wide" style={{ color: "var(--color-text-muted)" }}>
+                      {t.dashboard.security.countLabel}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {securitySummary.findings_by_severity.map((bucket) => (
+                    <SeverityTableRow key={bucket.severity} bucket={bucket} />
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -233,24 +241,44 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
           <InfoRow label={t.dashboard.endpoint} value={info?.endpoint} mono />
         </div>
       </div>
+
     </div>
   );
 }
 
-function SeveritySummaryCard({ bucket }: { bucket: SeverityCount }) {
+function SummaryRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
   return (
-    <div
-      className="rounded-lg border p-4"
-      style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
-    >
-      <div className="text-xs uppercase tracking-wide mb-1"
-        style={{ color: "var(--color-text-muted)" }}>
-        {bucket.severity}
-      </div>
-      <div className="text-2xl font-semibold" style={{ color: severityColor(bucket.severity) }}>
+    <tr className="border-t first:border-t-0" style={{ borderColor: "var(--color-border)" }}>
+      <td className="px-4 py-3" style={{ color: "var(--color-text)" }}>{label}</td>
+      <td className="px-4 py-3 text-right font-semibold" style={{ color: "var(--color-text)" }}>{value}</td>
+    </tr>
+  );
+}
+
+function SeverityTableRow({ bucket }: { bucket: SeverityCount }) {
+  return (
+    <tr className="border-t" style={{ borderColor: "var(--color-border)" }}>
+      <td className="px-4 py-3">
+        <span
+          className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+          style={{
+            color: severityColor(bucket.severity),
+            backgroundColor: `${severityColor(bucket.severity)}1A`,
+          }}
+        >
+          {bucket.severity}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-right font-semibold" style={{ color: severityColor(bucket.severity) }}>
         {bucket.count}
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 

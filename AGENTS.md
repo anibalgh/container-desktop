@@ -284,6 +284,7 @@ Configured in `src-tauri/tauri.conf.json` under `app.security.csp`.
 - **DoS prevention**: all IDs and URLs have maximum length limits; compose files capped at 10 MB; exec input capped at 64 KB.
 - **Null byte injection**: all string inputs are checked for embedded `\0`.
 - **Scheme restriction**: Docker endpoint URLs must use an allowed transport scheme.
+- **Plain TCP warning**: direct `tcp://` Docker endpoints are intended for localhost or trusted local networks only; the Settings UI warns before saving a non-loopback TCP host and recommends SSH port forwarding for stronger protection.
 - **Container names**: enforced against Docker's `[a-zA-Z0-9_.-]+` pattern.
 
 ## Platform Support

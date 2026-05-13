@@ -12,6 +12,11 @@ export interface DockerInfo {
   endpoint: string;
 }
 
+export interface DockerCleanupSummary {
+  reclaimable_bytes: number;
+  reclaimable_mb: number;
+}
+
 export interface Container {
   id: string;
   name: string;

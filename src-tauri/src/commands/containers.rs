@@ -242,7 +242,10 @@ pub async fn exec_start(
         while let Some(result) = output.next().await {
             match result {
                 Ok(out) => {
-                    let text = String::from_utf8_lossy(&out.data).to_string();
+                    let text = sanitize_exec_output(&out.data);
+                    if text.is_empty() {
+                        continue;
+                    }
                     if app_clone
                         .emit(
                             "exec-output",
@@ -312,6 +315,24 @@ pub async fn exec_input(
 }
 
 #[tauri::command]
+pub async fn exec_disconnect(
+    state: State<'_, AppState>,
+    exec_id_str: String,
+) -> Result<(), String> {
+    validate_docker_id(&exec_id_str, "Exec")?;
+    use tokio::io::AsyncWriteExt;
+
+    let writer = state.exec_inputs.lock().await.remove(&exec_id_str);
+    if let Some(writer) = writer {
+        let mut writer = writer.lock().await;
+        let _ = writer.write_all(b"exit\n").await;
+        let _ = writer.shutdown().await;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn exec_resize(
     state: State<'_, AppState>,
     exec_id_str: String,
@@ -325,4 +346,76 @@ pub async fn exec_resize(
         .resize_exec(&exec_id, width, height)
         .await
         .map_err(|e| e.to_string())
+}
+
+fn sanitize_exec_output(data: &[u8]) -> String {
+    #[derive(Clone, Copy)]
+    enum ParseState {
+        Normal,
+        Escape,
+        Csi,
+        Osc,
+        OscEscape,
+    }
+
+    let text = String::from_utf8_lossy(data)
+        .replace("\r\n", "\n")
+        .replace('\r', "\n");
+    let mut sanitized = String::new();
+    let mut state = ParseState::Normal;
+
+    for ch in text.chars() {
+        match state {
+            ParseState::Normal => match ch {
+                '\u{1b}' => state = ParseState::Escape,
+                '\u{8}' => {
+                    sanitized.pop();
+                }
+                '\n' | '\t' => sanitized.push(ch),
+                _ if !ch.is_control() => sanitized.push(ch),
+                _ => {}
+            },
+            ParseState::Escape => match ch {
+                '[' => state = ParseState::Csi,
+                ']' => state = ParseState::Osc,
+                _ => state = ParseState::Normal,
+            },
+            ParseState::Csi => {
+                if ('@'..='~').contains(&ch) {
+                    state = ParseState::Normal;
+                }
+            }
+            ParseState::Osc => match ch {
+                '\u{7}' => state = ParseState::Normal,
+                '\u{1b}' => state = ParseState::OscEscape,
+                _ => {}
+            },
+            ParseState::OscEscape => {
+                state = if ch == '\\' {
+                    ParseState::Normal
+                } else {
+                    ParseState::Osc
+                };
+            }
+        }
+    }
+
+    sanitized
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_exec_output;
+
+    #[test]
+    fn sanitize_exec_output_strips_ansi_sequences() {
+        let raw = b"\x1b[32mhello\x1b[0m world\r\n";
+        assert_eq!(sanitize_exec_output(raw), "hello world\n");
+    }
+
+    #[test]
+    fn sanitize_exec_output_handles_backspaces() {
+        let raw = b"helo\x08lo\n";
+        assert_eq!(sanitize_exec_output(raw), "hello\n");
+    }
 }

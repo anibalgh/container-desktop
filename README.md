@@ -50,11 +50,12 @@ If the bootstrap fails, the agent should stop and surface the failure instead of
 ### User Interface
 
 - Modern web-based UI rendered in a native WebView
+- **Bilingual UI** with Auto / English / Spanish language selection
 - **22 distinct themes** with unique color palettes: Catppuccin, Tokyo Night, Dracula, Nord, Gruvbox, Solarized, Kanagawa, Moonfly, Nightfly, Oxocarbon, Ferra
 - Auto mode follows OS `prefers-color-scheme`; manual override with instant preview
 - **Sortable data tables** — click any column header to sort ascending/descending
 - **Font size presets**: Normal / Large / Larger (proportional scaling across all UI)
-- **Monospace font selector** — detects installed system fonts via `fc-list`
+- **Monospace font selector** — uses platform-specific font enumeration (`fc-list` on Linux, `system_profiler` on macOS, curated defaults on Windows)
 - Navigation sidebar with PNG icon (adapts to theme) and connection status indicator
 - Minimal **Acerca de** link in the sidebar footer for project and licensing details
 - Modal dialogs for image pull and confirmation actions
@@ -69,7 +70,8 @@ If the bootstrap fails, the agent should stop and surface the failure instead of
 ### Connection Options
 
 - Local Docker daemon (auto-detect on startup)
-- Local loopback Docker over TCP (`tcp://localhost`, `127.0.0.1`, `::1`)
+- Docker over plain TCP on localhost or a trusted local network (for example `tcp://localhost:2375` or `tcp://192.168.0.25:2375`)
+- The Settings screen warns before saving a non-loopback `tcp://` endpoint and recommends SSH port forwarding for better security
 - TLS-secured remote connections are not implemented yet
 
 ### Security Scanning
@@ -77,7 +79,7 @@ If the bootstrap fails, the agent should stop and surface the failure instead of
 - Detects **Grype**, **Trivy**, and **Docker Scout** at runtime and shows OS-specific install guidance when a scanner is missing
 - Persists selected scanners in `settings.json` and restarts scheduling automatically on app startup
 - Runs one sequential background worker per selected scanner
-- Reuses stored reports across launches and automatically refreshes results older than 3 days
+- Reuses stored reports across launches and automatically deletes and refreshes results older than 3 days
 - Prioritizes images that have never been scanned before refreshing stale reports
 - Uses unified deduplication so overview charts and dashboard counters do not double-count the same vulnerability reported by multiple tools
 
@@ -97,7 +99,7 @@ Dependency direction: `domain ← infrastructure ← src-tauri`
 | Layer | Tech | Purpose |
 |-------|------|---------|
 | Frontend | React 19, Tailwind CSS 4 | Desktop UI rendered in WebView |
-| IPC Bridge | Tauri v2 commands (32 commands) | Type-safe Rust ↔ JS communication |
+| IPC Bridge | Tauri v2 commands (42 commands) | Type-safe Rust ↔ JS communication |
 | Domain | Pure Rust | Entities, traits, no framework deps |
 | Infrastructure | Bollard 0.21, directories | Docker API, config persistence |
 
@@ -180,15 +182,19 @@ npx tsc --noEmit   # Type check only
 
 | Screen | Description |
 |---|---|
-| **Dashboard** | Connection status, Docker daemon info (version, OS, container/image counts, architecture), and a consolidated security summary with scanned image count and vulnerabilities by severity |
+| **Dashboard** | Connection status, Docker daemon info (version, OS, container/image counts, architecture), and a consolidated security summary with totals, scanned images, images with findings, and vulnerability counts by severity |
 | **Containers** | Sortable table with state badges. Select a container to access: **Logs** (tail N lines, since/until datetime filters, follow mode), **Terminal** (shell picker, root checkbox, interactive vs single-command), **Stats** (CPU%, memory, network RX/TX, block I/O, PIDs) |
 | **Images** | Sortable table. Pull from registry with live progress stream. Remove with confirmation. |
 | **Security** | Scanner availability and selection, unified severity chart, per-image scan status, and a modal drill-down with stored findings ordered by severity |
 | **Volumes** | Sortable table. Create / remove. |
 | **Networks** | Sortable table. Create with driver selector (bridge/overlay/host/none). Remove. |
-| **Docker Compose** | Compose file path input, up/down buttons, live output stream |
-| **Settings** | Theme (Auto/Manual + 22 variants), Docker endpoint URL, remote connection help modal, Font Size (Normal/Large/Larger), Monospace Font (system detection) |
+| **Docker Compose** | Compose file path input, `.yml` / `.yaml` file picker, up/down buttons, live output stream |
+| **Settings** | Language (Auto/Spanish/English), Theme (Auto/Manual + 22 variants), Docker endpoint URL, remote connection help modal, Font Size (Normal/Large/Larger), Monospace Font (platform-specific detection) |
 | **Acerca de** | Project summary, MIT license, tech stack, and vibe coding note with minimalist access from the sidebar footer |
+
+The sidebar also includes a direct **Cleanup** action that opens the Docker prune confirmation flow and reports how much space was freed after execution.
+
+When the active Docker endpoint is a non-loopback `tcp://` host, the **Security** screen is disabled from the sidebar.
 
 ### Theme Selection
 
@@ -213,7 +219,7 @@ All text sizes use `rem` units — changing the root size scales everything prop
 
 ### Monospace Font
 
-The dropdown lists all monospace fonts detected on your system via `fc-list`. The selection applies to code blocks, logs, terminal output, and table data. Falls back to system monospace if none selected.
+The dropdown uses platform-specific font discovery: `fc-list` on Linux, `system_profiler SPFontsDataType` on macOS, and a curated monospace list on Windows. The selection applies to code blocks, logs, terminal output, and table data. Falls back to system monospace if none are available.
 
 ---
 
@@ -232,6 +238,7 @@ Settings are persisted to:
 ```json
 {
   "theme_setting": { "Manual": "TokyoNight" },
+  "language_setting": "Auto",
   "endpoint": {
     "host_url": "unix:///var/run/docker.sock",
     "tls_ca": null,
@@ -253,7 +260,7 @@ Persisted security reports are stored separately from `settings.json` under a `s
 
 ### Remote Docker via SSH tunnel
 
-Container Desktop only accepts direct `tcp://` endpoints for local loopback addresses. To use a Docker daemon from another machine on your LAN, expose the remote Docker socket on the **remote loopback** and tunnel it back to your machine over SSH.
+Container Desktop supports direct `tcp://` endpoints for trusted local networks, but SSH tunneling remains the recommended option when you want stronger transport security. To use a Docker daemon from another machine on your LAN through SSH, expose the remote Docker socket on the **remote loopback** and tunnel it back to your machine.
 
 1. Install `socat` on the remote machine:
 
@@ -295,7 +302,7 @@ Implemented behavior:
 3. Each selected scanner gets its own background worker and scans images sequentially.
 4. Results are persisted locally per image and per tool so they can be reopened later without rerunning every scan.
 5. Startup summaries are rebuilt from current images plus fresh stored results, deduplicating overlapping findings across tools.
-6. Stored results older than 3 days are treated as stale and are automatically requeued, with never-scanned images taking priority.
+6. Stored results older than 3 days are treated as stale, their JSON files are deleted before rescanning to recycle disk usage, and they are automatically requeued with never-scanned images taking priority.
 7. Docker Scout uses SARIF output from the CLI so development mode does not create stray files inside `src-tauri/`.
 
 ---
@@ -314,7 +321,7 @@ container-desktop/
 │       ├── App.tsx            # Layout, navigation, theme, font
 │       ├── index.css          # Tailwind + 22 theme palettes
 │       ├── lib/
-│       │   ├── tauri.ts       # Tauri IPC bridge (32 commands + events)
+│       │   ├── tauri.ts       # Tauri IPC bridge (42 commands + events)
 │       │   └── types.ts       # TypeScript interfaces
 │       ├── components/
 │       │   ├── Sidebar.tsx    # Navigation sidebar + PNG icon

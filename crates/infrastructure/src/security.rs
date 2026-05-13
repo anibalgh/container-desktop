@@ -441,11 +441,33 @@ async fn detect_tool_version(tool: SecurityTool) -> Option<String> {
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if !stdout.is_empty() {
-        return Some(stdout.lines().next().unwrap_or_default().trim().to_string());
+        return match tool {
+            SecurityTool::DockerScout => parse_docker_scout_version(&stdout)
+                .or_else(|| Some(stdout.lines().next().unwrap_or_default().trim().to_string())),
+            _ => Some(stdout.lines().next().unwrap_or_default().trim().to_string()),
+        };
     }
 
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     (!stderr.is_empty()).then_some(stderr.lines().next().unwrap_or_default().trim().to_string())
+}
+
+fn parse_docker_scout_version(output: &str) -> Option<String> {
+    output.lines().find_map(|line| {
+        let (_, version) = line.split_once("version:")?;
+        let version = version.trim();
+        if version.is_empty() {
+            return None;
+        }
+
+        Some(
+            version
+                .split_whitespace()
+                .next()
+                .unwrap_or(version)
+                .to_string(),
+        )
+    })
 }
 
 fn version_command(tool: SecurityTool) -> Command {
@@ -1074,12 +1096,48 @@ async fn write_report(results_dir: &Path, report: &StoredToolReport) -> DomainRe
         .await
         .map_err(|e| DomainError::Config(format!("Cannot create image report dir: {e}")))?;
 
-    let path = image_dir.join(format!("{}.json", tool_file_stem(report.tool)));
+    let path = report_file_path(results_dir, &report.image_id, report.tool);
     let payload = serde_json::to_vec_pretty(report)
         .map_err(|e| DomainError::Serialization(format!("Cannot serialize report: {e}")))?;
     fs::write(&path, payload)
         .await
         .map_err(|e| DomainError::Config(format!("Cannot persist report file: {e}")))?;
+    Ok(())
+}
+
+async fn delete_report_file(
+    results_dir: &Path,
+    image_id: &str,
+    tool: SecurityTool,
+) -> DomainResult<()> {
+    let path = report_file_path(results_dir, image_id, tool);
+    match fs::remove_file(&path).await {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => {
+            return Err(DomainError::Config(format!(
+                "Cannot delete stale report file {}: {error}",
+                path.display()
+            )))
+        }
+    }
+
+    let image_dir = results_dir.join(sanitize_path_component(image_id));
+    match fs::remove_dir(&image_dir).await {
+        Ok(()) => {}
+        Err(error)
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::DirectoryNotEmpty
+            ) => {}
+        Err(error) => {
+            return Err(DomainError::Config(format!(
+                "Cannot remove empty image report dir {}: {error}",
+                image_dir.display()
+            )))
+        }
+    }
+
     Ok(())
 }
 
@@ -1136,7 +1194,10 @@ async fn build_scan_queue(
         let tool_report = stored_reports.iter().find(|report| report.tool == tool);
         match scan_priority_for_tool(tool_report, now) {
             Some(ScanPriority::Missing) => missing.push(image.clone()),
-            Some(ScanPriority::Stale(generated_at)) => stale.push((generated_at, image.clone())),
+            Some(ScanPriority::Stale(generated_at)) => {
+                delete_report_file(results_dir, &image.id, tool).await?;
+                stale.push((generated_at, image.clone()));
+            }
             None => {}
         }
     }
@@ -1285,6 +1346,12 @@ fn tool_file_stem(tool: SecurityTool) -> &'static str {
         SecurityTool::Trivy => "trivy",
         SecurityTool::DockerScout => "docker_scout",
     }
+}
+
+fn report_file_path(results_dir: &Path, image_id: &str, tool: SecurityTool) -> PathBuf {
+    results_dir
+        .join(sanitize_path_component(image_id))
+        .join(format!("{}.json", tool_file_stem(tool)))
 }
 
 fn now_rfc3339() -> String {
@@ -1537,6 +1604,26 @@ mod tests {
     }
 
     #[test]
+    fn parse_docker_scout_version_from_version_line() {
+        let output = r#"
+version: v1.20.4 (go1.25.8 - linux/amd64)
+git commit: fb59552651671b31cca99eba9895522871678c46
+"#;
+
+        assert_eq!(
+            parse_docker_scout_version(output).as_deref(),
+            Some("v1.20.4")
+        );
+    }
+
+    #[test]
+    fn parse_docker_scout_version_returns_none_without_version_line() {
+        let output = "git commit: fb59552651671b31cca99eba9895522871678c46";
+
+        assert_eq!(parse_docker_scout_version(output), None);
+    }
+
+    #[test]
     fn dedup_findings_merges_same_vulnerability_across_tools() {
         let image = test_image();
         let finding = SecurityFinding {
@@ -1750,6 +1837,45 @@ mod tests {
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].tool, SecurityTool::Grype);
         assert_eq!(loaded[0].findings[0].package_name, "busybox");
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[tokio::test]
+    async fn stale_report_file_is_deleted_before_requeue() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "container_desktop_security_stale_cleanup_test_{}",
+            now_rfc3339().replace(':', "_")
+        ));
+        let results_dir = temp_dir.join("results");
+        let image = test_image();
+        let report = StoredToolReport {
+            image_id: image.id.clone(),
+            image_name: image_reference(&image),
+            tool: SecurityTool::Grype,
+            tool_version: Some("1.0.0".into()),
+            generated_at: (Utc::now() - Duration::days(REPORT_MAX_AGE_DAYS + 1)).to_rfc3339(),
+            findings: vec![],
+            severity_counts: zero_counts(),
+            raw_json: serde_json::json!({}),
+        };
+
+        write_report(&results_dir, &report).await.unwrap();
+        let report_path = report_file_path(&results_dir, &image.id, SecurityTool::Grype);
+        assert!(report_path.exists());
+
+        let queue = build_scan_queue(
+            &[image.clone()],
+            &results_dir,
+            SecurityTool::Grype,
+            Utc::now(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(queue.len(), 1);
+        assert_eq!(queue[0].id, image.id);
+        assert!(!report_path.exists());
 
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
