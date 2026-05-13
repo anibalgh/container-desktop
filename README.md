@@ -268,6 +268,23 @@ The Settings screen includes the same instructions in a built-in help modal next
 
 ---
 
+## Planned Security Work
+
+The next major functional area planned for Container Desktop is a dedicated **Security** screen focused on Docker image vulnerability visibility.
+
+Planned scope:
+
+1. Add a **Security** screen to the sidebar with a global image security summary and per-image drill-down.
+2. Detect whether **Grype**, **Trivy**, and **Docker Scout** are installed on the host and show their availability in the UI.
+3. Allow users to enable one or more installed scanners and run one background worker per selected tool, scanning images one at a time.
+4. Persist scan results locally so previously completed analyses can be reopened later for each image.
+5. Rebuild startup statistics from persisted scan data and current images, merging duplicate findings across tools so summary charts do not double-count vulnerabilities.
+6. Show OS-specific installation guidance when the user selects a scanner that is not installed.
+
+This work is currently tracked as backlog and is not implemented in `1.0.0`.
+
+---
+
 ## Project Structure
 
 ```
