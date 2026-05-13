@@ -42,6 +42,7 @@ If the bootstrap fails, the agent should stop and surface the failure instead of
 |---|---|
 | **Containers** | List, start, stop, restart, remove. Log viewer with tail/since/until filters. Interactive terminal (sh, bash, zsh, ash, dash) with root option and single-command mode. Resource stats (CPU, memory, network, block I/O, PIDs). |
 | **Images** | List, pull (with live progress), remove, tag, inspect |
+| **Security** | Detect Grype / Trivy / Docker Scout, run background image scans, persist findings per image, and show consolidated vulnerability summaries without double-counting across tools |
 | **Volumes** | List, create, remove, inspect |
 | **Networks** | List, create (bridge/overlay/host/none), remove, inspect |
 | **Docker Compose** | Up, down, streaming log viewer |
@@ -70,6 +71,15 @@ If the bootstrap fails, the agent should stop and surface the failure instead of
 - Local Docker daemon (auto-detect on startup)
 - Local loopback Docker over TCP (`tcp://localhost`, `127.0.0.1`, `::1`)
 - TLS-secured remote connections are not implemented yet
+
+### Security Scanning
+
+- Detects **Grype**, **Trivy**, and **Docker Scout** at runtime and shows OS-specific install guidance when a scanner is missing
+- Persists selected scanners in `settings.json` and restarts scheduling automatically on app startup
+- Runs one sequential background worker per selected scanner
+- Reuses stored reports across launches and automatically refreshes results older than 3 days
+- Prioritizes images that have never been scanned before refreshing stale reports
+- Uses unified deduplication so overview charts and dashboard counters do not double-count the same vulnerability reported by multiple tools
 
 ---
 
@@ -170,9 +180,10 @@ npx tsc --noEmit   # Type check only
 
 | Screen | Description |
 |---|---|
-| **Dashboard** | Connection status, Docker daemon info (version, OS, container/image counts, architecture) |
+| **Dashboard** | Connection status, Docker daemon info (version, OS, container/image counts, architecture), and a consolidated security summary with scanned image count and vulnerabilities by severity |
 | **Containers** | Sortable table with state badges. Select a container to access: **Logs** (tail N lines, since/until datetime filters, follow mode), **Terminal** (shell picker, root checkbox, interactive vs single-command), **Stats** (CPU%, memory, network RX/TX, block I/O, PIDs) |
 | **Images** | Sortable table. Pull from registry with live progress stream. Remove with confirmation. |
+| **Security** | Scanner availability and selection, unified severity chart, per-image scan status, and a modal drill-down with stored findings ordered by severity |
 | **Volumes** | Sortable table. Create / remove. |
 | **Networks** | Sortable table. Create with driver selector (bridge/overlay/host/none). Remove. |
 | **Docker Compose** | Compose file path input, up/down buttons, live output stream |
@@ -231,9 +242,14 @@ Settings are persisted to:
   "window_width": 1280,
   "window_height": 800,
   "font_family": "JetBrains Mono",
-  "font_size": 14
+  "font_size": 14,
+  "security": {
+    "selected_tools": ["Grype", "Trivy"]
+  }
 }
 ```
+
+Persisted security reports are stored separately from `settings.json` under a `security/results/` directory in the same application config root.
 
 ### Remote Docker via SSH tunnel
 
@@ -268,20 +284,19 @@ The Settings screen includes the same instructions in a built-in help modal next
 
 ---
 
-## Planned Security Work
+## Security Workflow
 
-The next major functional area planned for Container Desktop is a dedicated **Security** screen focused on Docker image vulnerability visibility.
+Container Desktop now includes a dedicated **Security** workflow for Docker image vulnerability visibility.
 
-Planned scope:
+Implemented behavior:
 
-1. Add a **Security** screen to the sidebar with a global image security summary and per-image drill-down.
-2. Detect whether **Grype**, **Trivy**, and **Docker Scout** are installed on the host and show their availability in the UI.
-3. Allow users to enable one or more installed scanners and run one background worker per selected tool, scanning images one at a time.
-4. Persist scan results locally so previously completed analyses can be reopened later for each image.
-5. Rebuild startup statistics from persisted scan data and current images, merging duplicate findings across tools so summary charts do not double-count vulnerabilities.
-6. Show OS-specific installation guidance when the user selects a scanner that is not installed.
-
-This work is currently tracked as backlog and is not implemented in `1.0.0`.
+1. The sidebar includes a **Security** screen with scanner status, a unified severity chart, and a per-image list.
+2. **Grype**, **Trivy**, and **Docker Scout** are detected on the host and can be enabled individually when installed.
+3. Each selected scanner gets its own background worker and scans images sequentially.
+4. Results are persisted locally per image and per tool so they can be reopened later without rerunning every scan.
+5. Startup summaries are rebuilt from current images plus fresh stored results, deduplicating overlapping findings across tools.
+6. Stored results older than 3 days are treated as stale and are automatically requeued, with never-scanned images taking priority.
+7. Docker Scout uses SARIF output from the CLI so development mode does not create stray files inside `src-tauri/`.
 
 ---
 
@@ -308,6 +323,7 @@ container-desktop/
 │           ├── Dashboard.tsx
 │           ├── Containers.tsx # Table + Logs/Terminal/Stats tabs
 │           ├── Images.tsx
+│           ├── Security.tsx
 │           ├── Volumes.tsx
 │           ├── Networks.tsx
 │           ├── Compose.tsx
@@ -323,13 +339,14 @@ container-desktop/
 │           ├── connection.rs
 │           ├── containers.rs  # + exec_create, exec_start, exec_input, exec_resize
 │           ├── images.rs
+│           ├── security.rs
 │           ├── volumes.rs
 │           ├── networks.rs
 │           ├── compose.rs
 │           └── settings.rs    # + list_fonts
 └── crates/
     ├── domain/src/            # Entities + repository traits
-    └── infrastructure/src/    # Docker API (bollard) + config persistence
+    └── infrastructure/src/    # Docker API (bollard) + config persistence + security scanning
 ```
 
 ---

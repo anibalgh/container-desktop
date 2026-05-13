@@ -33,6 +33,17 @@ impl ConfigManager {
         &self.config_path
     }
 
+    /// Returns the directory used for persisted security artifacts.
+    pub fn security_dir(&self) -> DomainResult<PathBuf> {
+        let parent = self.config_path.parent().ok_or_else(|| {
+            DomainError::Config("Settings path has no parent directory".to_string())
+        })?;
+        let dir = parent.join("security");
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| DomainError::Config(format!("Failed to create security dir: {e}")))?;
+        Ok(dir)
+    }
+
     /// Creates a `ConfigManager` pointed at a specific file path.
     /// Only available in tests to isolate from the real user config directory.
     #[cfg(test)]
@@ -261,5 +272,21 @@ mod tests {
         assert_eq!(size, 14);
 
         std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn security_dir_is_created_next_to_settings_file() {
+        let dir = test_dir();
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("security_dir_test.json");
+        std::fs::remove_file(&path).ok();
+
+        let mgr = ConfigManager::with_path(path.clone());
+        let security_dir = mgr.security_dir().unwrap();
+
+        assert!(security_dir.ends_with("security"));
+        assert!(security_dir.exists());
+
+        std::fs::remove_dir_all(security_dir).ok();
     }
 }

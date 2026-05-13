@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { id: "dashboard", icon: "📊" },
   { id: "containers", icon: "📦" },
   { id: "images", icon: "🖼️" },
+  { id: "security", icon: "🛡️" },
   { id: "volumes", icon: "💾" },
   { id: "networks", icon: "🌐" },
   { id: "compose", icon: "📋" },

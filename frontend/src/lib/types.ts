@@ -56,6 +56,114 @@ export interface Image {
   labels: string[];
 }
 
+export type SecurityTool = "Grype" | "Trivy" | "DockerScout";
+
+export interface SecuritySettings {
+  selected_tools: SecurityTool[];
+}
+
+export type VulnerabilitySeverity =
+  | "Critical"
+  | "High"
+  | "Medium"
+  | "Low"
+  | "Negligible"
+  | "Unknown";
+
+export interface SeverityCount {
+  severity: VulnerabilitySeverity;
+  count: number;
+}
+
+export type SecurityScanState = "Idle" | "Running" | "Completed" | "Failed";
+
+export interface SecurityInstallHint {
+  title: string;
+  description: string;
+  commands: string[];
+  note: string | null;
+}
+
+export interface SecurityToolStatus {
+  tool: SecurityTool;
+  available: boolean;
+  selected: boolean;
+  version: string | null;
+  install_hint: SecurityInstallHint;
+}
+
+export interface SecurityReferenceLink {
+  label: string;
+  url: string;
+}
+
+export interface SecurityFinding {
+  vulnerability_id: string;
+  package_name: string;
+  installed_version: string;
+  severity: VulnerabilitySeverity;
+  title: string | null;
+  description: string | null;
+  fixed_version: string | null;
+  references: SecurityReferenceLink[];
+  source_tool: SecurityTool;
+}
+
+export interface SecurityImageToolStatus {
+  tool: SecurityTool;
+  state: SecurityScanState;
+  available: boolean;
+  selected: boolean;
+  findings_count: number;
+  last_scanned_at: string | null;
+  message: string | null;
+}
+
+export interface SecurityImageSummary {
+  image_id: string;
+  image_name: string;
+  repo_name: string;
+  tag: string;
+  total_findings: number;
+  severity_counts: SeverityCount[];
+  tool_statuses: SecurityImageToolStatus[];
+  last_scanned_at: string | null;
+}
+
+export interface SecurityOverview {
+  tools: SecurityToolStatus[];
+  total_images: number;
+  scanned_images: number;
+  images_with_findings: number;
+  findings_by_severity: SeverityCount[];
+  images: SecurityImageSummary[];
+}
+
+export interface SecurityToolReport {
+  tool: SecurityTool;
+  state: SecurityScanState;
+  tool_version: string | null;
+  generated_at: string | null;
+  findings: SecurityFinding[];
+  severity_counts: SeverityCount[];
+  message: string | null;
+}
+
+export interface ImageSecurityReport {
+  image_id: string;
+  image_name: string;
+  reports: SecurityToolReport[];
+}
+
+export interface SecurityScanProgressEvent {
+  tool: SecurityTool;
+  image_id: string;
+  image_name: string;
+  state: SecurityScanState;
+  findings_count: number | null;
+  message: string | null;
+}
+
 export interface Volume {
   name: string;
   driver: string;
@@ -131,6 +239,7 @@ export interface AppSettings {
   window_height: number;
   font_family: string;
   font_size: number;
+  security: SecuritySettings;
 }
 
 export type Language = "en" | "es";

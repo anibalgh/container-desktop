@@ -11,6 +11,7 @@ export interface Messages {
       | "dashboard"
       | "containers"
       | "images"
+      | "security"
       | "volumes"
       | "networks"
       | "compose"
@@ -29,6 +30,7 @@ export interface Messages {
     saved: string;
     dismiss: string;
     refresh: string;
+    open: string;
     cancel: string;
     create: string;
     creating: string;
@@ -55,6 +57,13 @@ export interface Messages {
     os: string;
     architecture: string;
     endpoint: string;
+    security: {
+      title: string;
+      scannedImages: (count: number) => string;
+      scannedImagesLabel: string;
+      vulnerabilitiesBySeverity: string;
+      noResults: string;
+    };
   };
   settings: {
     title: string;
@@ -208,6 +217,47 @@ export interface Messages {
       message: (name: string) => string;
     };
   };
+  security: {
+    title: string;
+    subtitle: string;
+    toolsTitle: string;
+    imagesTitle: string;
+    selectedCount: (count: number) => string;
+    rescanSelected: string;
+    rescanning: string;
+    toolAvailable: (version: string) => string;
+    toolUnavailable: string;
+    installHint: string;
+    emptyImages: string;
+    noFindings: string;
+    summary: {
+      totalImages: string;
+      scannedImages: string;
+      imagesWithFindings: string;
+      severityChart: string;
+    };
+    columns: {
+      image: string;
+      findings: string;
+      tools: string;
+      lastScan: string;
+    };
+    toolState: Record<"Idle" | "Running" | "Completed" | "Failed", string>;
+    detail: {
+      title: (imageName: string) => string;
+      emptyTitle: string;
+      selectImage: string;
+      noReports: string;
+      findings: (count: number) => string;
+      columns: {
+        vulnerability: string;
+        package: string;
+        version: string;
+        severity: string;
+      };
+      references: string;
+    };
+  };
   volumes: {
     title: string;
     count: (count: number) => string;
@@ -262,6 +312,7 @@ export const en: Messages = {
       dashboard: "Dashboard",
       containers: "Containers",
       images: "Images",
+      security: "Security",
       volumes: "Volumes",
       networks: "Networks",
       compose: "Compose",
@@ -279,6 +330,7 @@ export const en: Messages = {
     saved: "Saved ✓",
     dismiss: "Dismiss",
     refresh: "Refresh",
+    open: "Open",
     cancel: "Cancel",
     create: "Create",
     creating: "Creating...",
@@ -305,6 +357,13 @@ export const en: Messages = {
     os: "OS",
     architecture: "Architecture",
     endpoint: "Endpoint",
+    security: {
+      title: "Security summary",
+      scannedImages: (count) => `${count} scanned image${count === 1 ? "" : "s"}`,
+      scannedImagesLabel: "Scanned images",
+      vulnerabilitiesBySeverity: "Vulnerabilities by severity",
+      noResults: "No current security summary is available.",
+    },
   },
   settings: {
     title: "Settings",
@@ -466,6 +525,53 @@ export const en: Messages = {
       message: (name) => `Remove ${name}?`,
     },
   },
+  security: {
+    title: "Security",
+    subtitle:
+      "Detect scanners, persist selected tools, and review consolidated vulnerability results for local images.",
+    toolsTitle: "Scanner tools",
+    imagesTitle: "Image security status",
+    selectedCount: (count) => `${count} selected scanner${count === 1 ? "" : "s"}`,
+    rescanSelected: "Run selected scanners",
+    rescanning: "Scheduling scans...",
+    toolAvailable: (version) => `Available · ${version}`,
+    toolUnavailable: "Not installed on this system",
+    installHint: "Click to view installation instructions for this OS.",
+    emptyImages: "No Docker images are available to scan.",
+    noFindings: "No findings",
+    summary: {
+      totalImages: "Total images",
+      scannedImages: "Images with stored results",
+      imagesWithFindings: "Images with findings",
+      severityChart: "Unified findings by severity",
+    },
+    columns: {
+      image: "Image",
+      findings: "Findings",
+      tools: "Tools",
+      lastScan: "Last scan",
+    },
+    toolState: {
+      Idle: "Idle",
+      Running: "Running",
+      Completed: "Completed",
+      Failed: "Failed",
+    },
+    detail: {
+      title: (imageName) => `Results for ${imageName}`,
+      emptyTitle: "Image details",
+      selectImage: "Select an image to inspect the stored vulnerability results.",
+      noReports: "No stored reports were found for this image yet.",
+      findings: (count) => `${count} finding${count === 1 ? "" : "s"}`,
+      columns: {
+        vulnerability: "Vulnerability",
+        package: "Package",
+        version: "Installed version",
+        severity: "Severity",
+      },
+      references: "References",
+    },
+  },
   volumes: {
     title: "Volumes",
     count: (count) => `${count} volume${count === 1 ? "" : "s"}`,
@@ -520,6 +626,7 @@ export const es: Messages = {
       dashboard: "Panel Principal",
       containers: "Contenedores",
       images: "Imágenes",
+      security: "Seguridad",
       volumes: "Volúmenes",
       networks: "Redes",
       compose: "Compose",
@@ -537,6 +644,7 @@ export const es: Messages = {
     saved: "Guardado ✓",
     dismiss: "Cerrar",
     refresh: "Actualizar",
+    open: "Abrir",
     cancel: "Cancelar",
     create: "Crear",
     creating: "Creando...",
@@ -563,6 +671,13 @@ export const es: Messages = {
     os: "Sistema operativo",
     architecture: "Arquitectura",
     endpoint: "Endpoint",
+    security: {
+      title: "Resumen de seguridad",
+      scannedImages: (count) => `${count} imagen${count === 1 ? "" : "es"} escaneada${count === 1 ? "" : "s"}`,
+      scannedImagesLabel: "Imágenes escaneadas",
+      vulnerabilitiesBySeverity: "Vulnerabilidades por severidad",
+      noResults: "No hay un resumen de seguridad disponible actualmente.",
+    },
   },
   settings: {
     title: "Configuración",
@@ -723,6 +838,53 @@ export const es: Messages = {
     confirmRemove: {
       title: "Eliminar imagen",
       message: (name) => `¿Eliminar ${name}?`,
+    },
+  },
+  security: {
+    title: "Seguridad",
+    subtitle:
+      "Detecta escáneres, persiste la selección del usuario y revisa resultados consolidados de vulnerabilidades para las imágenes locales.",
+    toolsTitle: "Herramientas de análisis",
+    imagesTitle: "Estado de seguridad por imagen",
+    selectedCount: (count) => `${count} herramienta${count === 1 ? "" : "s"} seleccionada${count === 1 ? "" : "s"}`,
+    rescanSelected: "Ejecutar herramientas seleccionadas",
+    rescanning: "Programando análisis...",
+    toolAvailable: (version) => `Disponible · ${version}`,
+    toolUnavailable: "No está instalada en este sistema",
+    installHint: "Haz clic para ver instrucciones de instalación para este sistema operativo.",
+    emptyImages: "No hay imágenes Docker disponibles para analizar.",
+    noFindings: "Sin hallazgos",
+    summary: {
+      totalImages: "Imágenes totales",
+      scannedImages: "Imágenes con resultados guardados",
+      imagesWithFindings: "Imágenes con hallazgos",
+      severityChart: "Hallazgos unificados por severidad",
+    },
+    columns: {
+      image: "Imagen",
+      findings: "Hallazgos",
+      tools: "Herramientas",
+      lastScan: "Último análisis",
+    },
+    toolState: {
+      Idle: "En espera",
+      Running: "Analizando",
+      Completed: "Completado",
+      Failed: "Falló",
+    },
+    detail: {
+      title: (imageName) => `Resultados para ${imageName}`,
+      emptyTitle: "Detalle de imagen",
+      selectImage: "Selecciona una imagen para inspeccionar los resultados almacenados.",
+      noReports: "Todavía no se encontraron reportes guardados para esta imagen.",
+      findings: (count) => `${count} hallazgo${count === 1 ? "" : "s"}`,
+      columns: {
+        vulnerability: "Vulnerabilidad",
+        package: "Paquete",
+        version: "Versión instalada",
+        severity: "Severidad",
+      },
+      references: "Referencias",
     },
   },
   volumes: {

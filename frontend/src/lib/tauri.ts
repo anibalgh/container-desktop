@@ -4,6 +4,7 @@ import type {
   DockerInfo, Container, Image, Volume, Network,
   ContainerStats, DockerEndpoint, AppSettings, LogStreamEvent,
   ProgressStreamEvent, StreamStatusEvent, TextStreamEvent,
+  SecurityOverview, ImageSecurityReport, SecurityTool, SecurityScanProgressEvent,
 } from "./types";
 
 // ─── Connection ────────────────────────────────────────────
@@ -98,6 +99,23 @@ export async function tagImage(id: string, repo: string, tag: string): Promise<v
 }
 export async function inspectImage(id: string): Promise<string> {
   return invoke("inspect_image", { id });
+}
+
+// ─── Security ────────────────────────────────────────────────
+export async function securityOverview(): Promise<SecurityOverview> {
+  return invoke("security_overview");
+}
+export async function imageSecurityReport(imageId: string): Promise<ImageSecurityReport> {
+  return invoke("image_security_report", { imageId });
+}
+export async function configureSecurityTools(tools: SecurityTool[]): Promise<SecurityOverview> {
+  return invoke("configure_security_tools", { tools });
+}
+export async function openExternalLink(url: string): Promise<void> {
+  return invoke("open_external_link", { url });
+}
+export function onSecurityScanProgress(cb: (event: SecurityScanProgressEvent) => void): Promise<UnlistenFn> {
+  return listen<SecurityScanProgressEvent>("security-scan-progress", (e) => cb(e.payload));
 }
 
 // ─── Volumes ───────────────────────────────────────────────

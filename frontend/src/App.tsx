@@ -4,6 +4,7 @@ import { StatusBar } from "./components/StatusBar";
 import { Dashboard } from "./screens/Dashboard";
 import { ContainersScreen } from "./screens/Containers";
 import { ImagesScreen } from "./screens/Images";
+import { SecurityScreen } from "./screens/Security";
 import { VolumesScreen } from "./screens/Volumes";
 import { NetworksScreen } from "./screens/Networks";
 import { ComposeScreen } from "./screens/Compose";
@@ -210,6 +211,8 @@ function AppShell({
         return <ContainersScreen />;
       case "images":
         return <ImagesScreen />;
+      case "security":
+        return <SecurityScreen />;
       case "volumes":
         return <VolumesScreen />;
       case "networks":

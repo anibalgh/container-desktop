@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
-import type { DockerInfo } from "../lib/types";
-import { testConnection, onDockerConnected, onDockerError } from "../lib/tauri";
+import type { DockerInfo, SecurityOverview, SeverityCount } from "../lib/types";
+import {
+  testConnection,
+  onDockerConnected,
+  onDockerError,
+  onSecurityScanProgress,
+  securityOverview,
+} from "../lib/tauri";
 import { useI18n } from "../i18n";
 
 interface DashboardProps {
@@ -11,8 +17,10 @@ interface DashboardProps {
 export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
   const { t } = useI18n();
   const [info, setInfo] = useState<DockerInfo | null>(null);
+  const [securitySummary, setSecuritySummary] = useState<SecurityOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [securityError, setSecurityError] = useState<string | null>(null);
 
   useEffect(() => {
     // Listen for initial connection event
@@ -51,6 +59,50 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
       unlisten2.then((f) => f());
     };
   }, [onConnectionChange]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | null = null;
+
+    async function loadSecuritySummary() {
+      if (!connected) {
+        if (!cancelled) {
+          setSecuritySummary(null);
+          setSecurityError(null);
+        }
+        return;
+      }
+
+      try {
+        const summary = await securityOverview();
+        if (!cancelled) {
+          setSecuritySummary(summary);
+          setSecurityError(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSecurityError(String(error));
+        }
+      }
+    }
+
+    void loadSecuritySummary();
+
+    onSecurityScanProgress(() => {
+      void loadSecuritySummary();
+    }).then((listener) => {
+      if (cancelled) {
+        listener();
+      } else {
+        unlisten = listener;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [connected]);
 
   if (loading) {
     return (
@@ -123,6 +175,51 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
         />
       </div>
 
+      <div className="rounded-lg border p-6 mb-8"
+        style={{ backgroundColor: "var(--color-surface-secondary)" }}>
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <h2 className="text-lg font-medium" style={{ color: "var(--color-text)" }}>
+            {t.dashboard.security.title}
+          </h2>
+          <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+            {t.dashboard.security.scannedImages(securitySummary?.scanned_images ?? 0)}
+          </span>
+        </div>
+        {securityError ? (
+          <p className="text-sm" style={{ color: "var(--color-danger)" }}>
+            {securityError}
+          </p>
+        ) : !securitySummary ? (
+          <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+            {t.dashboard.security.noResults}
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
+            <div className="rounded-lg border p-4"
+              style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}>
+              <div className="text-xs uppercase tracking-wide mb-1"
+                style={{ color: "var(--color-text-muted)" }}>
+                {t.dashboard.security.scannedImagesLabel}
+              </div>
+              <div className="text-3xl font-semibold" style={{ color: "var(--color-accent)" }}>
+                {securitySummary.scanned_images}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wide mb-3"
+                style={{ color: "var(--color-text-muted)" }}>
+                {t.dashboard.security.vulnerabilitiesBySeverity}
+              </div>
+              <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+                {securitySummary.findings_by_severity.map((bucket) => (
+                  <SeveritySummaryCard key={bucket.severity} bucket={bucket} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* System info */}
       <div className="rounded-lg border p-6"
         style={{ backgroundColor: "var(--color-surface-secondary)" }}>
@@ -138,6 +235,40 @@ export function Dashboard({ connected, onConnectionChange }: DashboardProps) {
       </div>
     </div>
   );
+}
+
+function SeveritySummaryCard({ bucket }: { bucket: SeverityCount }) {
+  return (
+    <div
+      className="rounded-lg border p-4"
+      style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
+    >
+      <div className="text-xs uppercase tracking-wide mb-1"
+        style={{ color: "var(--color-text-muted)" }}>
+        {bucket.severity}
+      </div>
+      <div className="text-2xl font-semibold" style={{ color: severityColor(bucket.severity) }}>
+        {bucket.count}
+      </div>
+    </div>
+  );
+}
+
+function severityColor(severity: SeverityCount["severity"]): string {
+  switch (severity) {
+    case "Critical":
+      return "var(--color-danger)";
+    case "High":
+      return "#f97316";
+    case "Medium":
+      return "#eab308";
+    case "Low":
+      return "var(--color-success)";
+    case "Negligible":
+      return "#14b8a6";
+    default:
+      return "var(--color-text-muted)";
+  }
 }
 
 function StatCard({

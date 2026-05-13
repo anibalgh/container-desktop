@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::endpoint::DockerEndpoint;
+use super::security::SecuritySettings;
 
 /// All 23 built-in Iced theme variants.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -200,6 +201,9 @@ pub struct AppSettings {
     /// Base font size in pixels for the entire UI.
     #[serde(default = "default_font_size")]
     pub font_size: u16,
+    /// Security preferences for scanner selection.
+    #[serde(default)]
+    pub security: SecuritySettings,
 }
 
 fn default_font_family() -> String {
@@ -220,6 +224,7 @@ impl Default for AppSettings {
             window_height: 800,
             font_family: default_font_family(),
             font_size: default_font_size(),
+            security: SecuritySettings::default(),
         }
     }
 }
@@ -227,6 +232,7 @@ impl Default for AppSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::SecurityTool;
 
     // ── ThemeVariant tests ──
 
@@ -366,6 +372,7 @@ mod tests {
         assert_eq!(settings.window_height, 800);
         assert_eq!(settings.font_family, "Monospace");
         assert_eq!(settings.font_size, 14);
+        assert!(settings.security.selected_tools.is_empty());
     }
 
     #[test]
@@ -379,6 +386,7 @@ mod tests {
         assert_eq!(decoded.font_size, 14);
         assert_eq!(decoded.theme_setting, ThemeSetting::Auto);
         assert_eq!(decoded.language_setting, LanguageSetting::Auto);
+        assert!(decoded.security.selected_tools.is_empty());
     }
 
     #[test]
@@ -393,5 +401,23 @@ mod tests {
         assert_eq!(settings.font_family, "Monospace");
         assert_eq!(settings.font_size, 14);
         assert_eq!(settings.language_setting, LanguageSetting::Auto);
+        assert!(settings.security.selected_tools.is_empty());
+    }
+
+    #[test]
+    fn app_settings_security_roundtrip() {
+        let settings = AppSettings {
+            security: SecuritySettings {
+                selected_tools: vec![SecurityTool::Grype, SecurityTool::Trivy],
+            },
+            ..AppSettings::default()
+        };
+
+        let json = serde_json::to_string(&settings).unwrap();
+        let decoded: AppSettings = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            decoded.security.selected_tools,
+            vec![SecurityTool::Grype, SecurityTool::Trivy]
+        );
     }
 }
