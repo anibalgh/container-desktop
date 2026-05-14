@@ -208,7 +208,7 @@ The current Linux package requirements above include the extra dependencies disc
 
 ## GitHub Actions
 
-`.github/workflows/rust.yml` validates the project on pull requests to `main` and on pushes to `main`. It publishes Linux release assets only when a pull request from `dev` into `main` is merged and the validation job succeeds.
+`.github/workflows/rust.yml` validates the project on pull requests to `main` and on pushes to `main`. It publishes Linux release assets when validation succeeds and either a pull request from `dev` into `main` is merged or `main` is updated by a push/fast-forward that leaves `main` at the same commit as `dev`.
 
 Published GitHub Release assets:
 

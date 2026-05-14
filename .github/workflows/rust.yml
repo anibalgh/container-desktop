@@ -52,7 +52,7 @@ jobs:
       run: npm run build --prefix frontend
 
   release-linux-bundles:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'dev'
+    if: (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'dev') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: validate
     runs-on: ubuntu-latest
     permissions:
@@ -60,17 +60,43 @@ jobs:
 
     steps:
     - uses: actions/checkout@v5
+      if: github.event_name != 'pull_request' || github.event.action != 'closed'
+      with:
+        fetch-depth: 0
+    - uses: actions/checkout@v5
+      if: github.event_name == 'pull_request' && github.event.action == 'closed'
       with:
         ref: ${{ github.event.pull_request.merge_commit_sha }}
+        fetch-depth: 0
+    - name: Determine release eligibility
+      id: eligibility
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "eligible=true" >> "$GITHUB_OUTPUT"
+          echo "target_commitish=${{ github.event.pull_request.merge_commit_sha }}" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        git fetch --no-tags origin dev:refs/remotes/origin/dev
+        if [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/dev)" ]; then
+          echo "eligible=true" >> "$GITHUB_OUTPUT"
+          echo "target_commitish=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        else
+          echo "eligible=false" >> "$GITHUB_OUTPUT"
+        fi
     - uses: dtolnay/rust-toolchain@stable
+      if: steps.eligibility.outputs.eligible == 'true'
     - uses: actions/setup-node@v5
+      if: steps.eligibility.outputs.eligible == 'true'
       with:
         node-version-file: frontend/package.json
         cache: npm
         cache-dependency-path: frontend/package-lock.json
     - name: Validate project context bootstrap
+      if: steps.eligibility.outputs.eligible == 'true'
       run: ./scripts/load-project-context.sh --check
     - name: Install Linux system dependencies
+      if: steps.eligibility.outputs.eligible == 'true'
       run: |
         sudo apt-get update
         sudo apt-get install -y \
@@ -83,12 +109,16 @@ jobs:
           libayatana-appindicator3-dev \
           librsvg2-dev
     - name: Install frontend dependencies
+      if: steps.eligibility.outputs.eligible == 'true'
       run: npm ci --prefix frontend
     - name: Install Tauri CLI
+      if: steps.eligibility.outputs.eligible == 'true'
       run: cargo install tauri-cli --locked
     - name: Build Linux bundles
+      if: steps.eligibility.outputs.eligible == 'true'
       run: cargo tauri build --bundles deb,rpm,appimage
     - name: Prepare release metadata
+      if: steps.eligibility.outputs.eligible == 'true'
       id: release_meta
       run: |
         version=$(node -p "require('./src-tauri/tauri.conf.json').version")
@@ -102,6 +132,7 @@ jobs:
           echo "title=$title"
         } >> "$GITHUB_OUTPUT"
     - name: Generate SHA512 checksums
+      if: steps.eligibility.outputs.eligible == 'true'
       run: |
         cd target/release/bundle
         sha512sum \
@@ -109,11 +140,12 @@ jobs:
           rpm/*.rpm \
           appimage/*.AppImage > SHA512SUMS
     - name: Publish GitHub release
+      if: steps.eligibility.outputs.eligible == 'true'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.release_meta.outputs.tag }}
         name: ${{ steps.release_meta.outputs.title }}
-        target_commitish: ${{ github.event.pull_request.merge_commit_sha }}
+        target_commitish: ${{ steps.eligibility.outputs.target_commitish }}
         generate_release_notes: true
         fail_on_unmatched_files: true
         files: |
