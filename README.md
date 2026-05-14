@@ -91,6 +91,8 @@ If the bootstrap fails, the agent should stop and surface the failure instead of
 - Hardened cross-platform Docker endpoint validation, especially for Windows named pipe vs Unix socket handling
 - Expanded the container terminal UI with Windows shell presets and shell-specific command execution
 - Improved endpoint help text, font behavior, CI validation, and release packaging coverage across Linux, macOS, and Windows
+- Fixed the CI bootstrap check on macOS by making `./scripts/load-project-context.sh --check` compatible with the Bash version shipped on GitHub runners
+- Fixed the Windows infrastructure build by preventing Unix-only Docker socket APIs from being compiled on the Windows target
 
 #### 1.0.1
 
