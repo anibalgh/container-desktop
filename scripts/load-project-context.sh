@@ -42,7 +42,10 @@ expected_skills=(
   "rust"
 )
 
-mapfile -t skill_dirs < <(find "$skills_root" -mindepth 1 -maxdepth 1 -type d | sort)
+skill_dirs=()
+while IFS= read -r skill_dir; do
+  skill_dirs+=("$skill_dir")
+done < <(find "$skills_root" -mindepth 1 -maxdepth 1 -type d | sort)
 
 if [[ ${#skill_dirs[@]} -eq 0 ]]; then
   echo "error: no skill directories found under $skills_root" >&2

@@ -105,13 +105,21 @@ fn connect_to_endpoint(endpoint: &DockerEndpoint) -> DomainResult<Docker> {
             ));
         }
     } else {
-        Docker::connect_with_unix(
-            &endpoint.host_url,
-            timeout_secs,
-            bollard::API_DEFAULT_VERSION,
-        )
-        .map_err(|e| DomainError::ConnectionFailed(format!("Local connection failed: {e}")))?
+        connect_local_socket(&endpoint.host_url, timeout_secs)?
     };
 
     Ok(docker)
+}
+
+#[cfg(target_os = "windows")]
+fn connect_local_socket(endpoint_url: &str, _timeout_secs: u64) -> DomainResult<Docker> {
+    Err(DomainError::Config(format!(
+        "Unix socket connections are not supported on Windows: {endpoint_url}"
+    )))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn connect_local_socket(endpoint_url: &str, timeout_secs: u64) -> DomainResult<Docker> {
+    Docker::connect_with_unix(endpoint_url, timeout_secs, bollard::API_DEFAULT_VERSION)
+        .map_err(|e| DomainError::ConnectionFailed(format!("Local connection failed: {e}")))
 }
