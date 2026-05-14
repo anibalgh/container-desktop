@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+- Hardened cross-platform Docker endpoint validation so unsupported local transports are rejected per operating system.
+- Expanded the container terminal UI with Windows shell presets and shell-specific command handling.
+- Improved cross-platform endpoint guidance, font handling, CI validation, and release packaging coverage for Linux, macOS, and Windows.
+
 ## 1.0.1
 
 - Added the native **Buscar... / Browse...** file picker in the Compose screen.

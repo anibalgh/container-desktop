@@ -11,12 +11,52 @@ type SortDir = "asc" | "desc";
 type TabId = "logs" | "terminal" | "stats";
 const MAX_LOG_LINES = 600;
 const MAX_TERMINAL_LINES = 600;
+const TERMINAL_SHELLS = [
+  "sh",
+  "bash",
+  "zsh",
+  "ash",
+  "dash",
+  "pwsh",
+  "powershell.exe",
+  "cmd.exe",
+] as const;
 
 function appendCappedText(current: string, addition: string, maxLines: number) {
   const combined = `${current}${addition}`;
   const lines = combined.split("\n");
   if (lines.length <= maxLines) return combined;
   return lines.slice(lines.length - maxLines).join("\n");
+}
+
+function shellPrompt(shell: string, isRoot: boolean) {
+  if (isRoot) return "#";
+  const normalized = shell.trim().toLowerCase();
+  if (normalized === "cmd" || normalized === "cmd.exe") return ">";
+  if (normalized === "powershell" || normalized === "powershell.exe" || normalized === "pwsh" || normalized === "pwsh.exe") {
+    return "PS>";
+  }
+  return "$";
+}
+
+function buildExecCommand(shell: string, mode: "interactive" | "command", rawCommand: string) {
+  if (mode === "interactive") {
+    return [shell];
+  }
+
+  const command = rawCommand.trim();
+  if (!command) {
+    return [shell];
+  }
+
+  const normalized = shell.trim().toLowerCase();
+  if (normalized === "cmd" || normalized === "cmd.exe") {
+    return [shell, "/C", command];
+  }
+  if (normalized === "powershell" || normalized === "powershell.exe" || normalized === "pwsh" || normalized === "pwsh.exe") {
+    return [shell, "-Command", command];
+  }
+  return [shell, "-c", command];
 }
 
 function useSort<T>(data: T[], defaultCol: keyof T) {
@@ -77,6 +117,7 @@ export function ContainersScreen() {
   const [termConnecting, setTermConnecting] = useState(false);
   const [termExecId, setTermExecId] = useState<string | null>(null);
   const [termSessionRoot, setTermSessionRoot] = useState(false);
+  const [termSessionShell, setTermSessionShell] = useState("sh");
   const [termSessionMode, setTermSessionMode] = useState<"interactive" | "command" | null>(null);
   const [termCanCopy, setTermCanCopy] = useState(false);
   const termUnlisten = useRef<(() => void) | null>(null);
@@ -111,6 +152,7 @@ export function ContainersScreen() {
     setTermConnecting(false);
     setTermExecId(null);
     setTermSessionRoot(false);
+    setTermSessionShell("sh");
     setTermSessionMode(null);
     setTermOutput("");
     setTermInput("");
@@ -179,15 +221,13 @@ export function ContainersScreen() {
     termStatusUnlisten.current?.();
     setTermOutput(""); setTermConnected(false); setTermConnecting(true); setTermCanCopy(false);
     const requestId = crypto.randomUUID();
+    const execCommand = buildExecCommand(termShell, termMode, termCmd);
     const cmd: string[] = [];
     if (termRoot) cmd.push("-u", "root");
     cmd.push(selected);
-    cmd.push(termShell);
-    if (termMode === "command" && termCmd.trim()) {
-      cmd.push("-c", termCmd.trim());
-    }
+    cmd.push(...execCommand);
     // Use docker exec via command for simplicity
-    setTermOutput((prev) => appendCappedText(prev, `${termRoot ? "#" : "$"} docker exec ${cmd.join(" ")}\n`, MAX_TERMINAL_LINES));
+    setTermOutput((prev) => appendCappedText(prev, `${shellPrompt(termShell, termRoot)} docker exec ${cmd.join(" ")}\n`, MAX_TERMINAL_LINES));
 
     const unlisten = await onExecOutput((event) => {
       if (event.requestId !== requestId) return;
@@ -207,6 +247,7 @@ export function ContainersScreen() {
         setTermConnecting(false);
         setTermConnected(false);
         setTermExecId(null);
+        setTermSessionShell("sh");
         setTermSessionMode(null);
         setTermOutput((prev) => appendCappedText(prev, `\nError: ${event.error ?? "Exec failed"}\n`, MAX_TERMINAL_LINES));
       }
@@ -214,6 +255,7 @@ export function ContainersScreen() {
         setTermConnecting(false);
         setTermConnected(false);
         setTermExecId(null);
+        setTermSessionShell("sh");
         setTermSessionMode(null);
       }
     });
@@ -221,16 +263,16 @@ export function ContainersScreen() {
     termStatusUnlisten.current = statusUnlisten;
 
     try {
-      const execId = await execCreate(selected, termMode === "command"
-        ? [termShell, "-c", termCmd.trim()]
-        : [termShell], termRoot ? "root" : null);
+      const execId = await execCreate(selected, execCommand, termRoot ? "root" : null);
       setTermExecId(execId);
       setTermSessionRoot(termRoot);
+      setTermSessionShell(termShell);
       setTermSessionMode(termMode);
       await execStart(execId, requestId);
     } catch (e) {
       setTermConnecting(false);
       setTermExecId(null);
+      setTermSessionShell("sh");
       setTermSessionMode(null);
       setTermCanCopy(false);
       setTermOutput((prev) => appendCappedText(prev, `Error: ${e}\n`, MAX_TERMINAL_LINES));
@@ -246,6 +288,7 @@ export function ContainersScreen() {
     setTermConnected(false);
     setTermConnecting(false);
     setTermExecId(null);
+    setTermSessionShell("sh");
     setTermSessionMode(null);
     setTermCanCopy(termOutput.trim().length > 0);
     if (execId) {
@@ -257,7 +300,7 @@ export function ContainersScreen() {
   async function sendTermInput() {
     if (!termExecId || !termInput.trim()) return;
     const data = new TextEncoder().encode(termInput + "\n");
-    setTermOutput((prev) => appendCappedText(prev, `${termSessionRoot ? "#" : "$"} ${termInput}\n`, MAX_TERMINAL_LINES));
+    setTermOutput((prev) => appendCappedText(prev, `${shellPrompt(termSessionShell, termSessionRoot)} ${termInput}\n`, MAX_TERMINAL_LINES));
     setTermInput("");
     try { await execInput(termExecId, Array.from(data)); }
     catch (e) { setError(String(e)); }
@@ -286,7 +329,7 @@ export function ContainersScreen() {
   };
   const shortId = (id: string) => id.substring(0, 12);
   const terminalLocked = termConnecting || termConnected;
-  const terminalPrompt = termSessionRoot ? "#" : "$";
+  const terminalPrompt = shellPrompt(termSessionShell, termSessionRoot);
 
   if (loading) return <div className="flex items-center justify-center h-full"><div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} /></div>;
 
@@ -374,7 +417,7 @@ export function ContainersScreen() {
             <div className="p-2 flex flex-col" style={{ maxHeight: "calc(40vh - 40px)" }}>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <select disabled={terminalLocked} value={termShell} onChange={(e) => setTermShell(e.target.value)} className="px-2 py-1 text-xs rounded border disabled:opacity-60" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }}>
-                  {["sh", "bash", "zsh", "ash", "dash"].map((s) => <option key={s} value={s}>{s}</option>)}
+                  {TERMINAL_SHELLS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input disabled={terminalLocked} type="checkbox" checked={termRoot} onChange={(e) => setTermRoot(e.target.checked)} /> {t.containers.terminal.root}</label>
                 <label className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}><input disabled={terminalLocked} type="radio" name="mode" checked={termMode === "interactive"} onChange={() => setTermMode("interactive")} /> {t.containers.terminal.interactive}</label>

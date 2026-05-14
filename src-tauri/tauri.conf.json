@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/schemas/main/tauri/tauri.conf.json",
   "productName": "Container Desktop",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "identifier": "com.container-desktop.app",
   "build": {
     "frontendDist": "../frontend/dist",

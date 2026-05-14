@@ -51,6 +51,11 @@ pub(crate) fn validate_docker_endpoint(endpoint: &DockerEndpoint) -> Result<(), 
         return Err("Endpoint timeout must be at least 1 second".to_string());
     }
 
+    #[cfg(target_os = "windows")]
+    if endpoint.host_url.starts_with("unix://") {
+        return Err("Unix socket connections are not supported on Windows".to_string());
+    }
+
     #[cfg(not(target_os = "windows"))]
     if endpoint.host_url.starts_with("npipe://") {
         return Err("Named pipe connections are only supported on Windows".to_string());
@@ -150,6 +155,30 @@ mod tests {
             ..Default::default()
         };
         assert!(validate_docker_endpoint(&endpoint).is_ok());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn unix_endpoint_rejected_on_windows() {
+        let endpoint = DockerEndpoint {
+            host_url: "unix:///var/run/docker.sock".into(),
+            timeout_secs: 5,
+            ..Default::default()
+        };
+        let err = validate_docker_endpoint(&endpoint).unwrap_err();
+        assert!(err.contains("not supported on Windows"));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn npipe_endpoint_rejected_off_windows() {
+        let endpoint = DockerEndpoint {
+            host_url: "npipe:////./pipe/docker_engine".into(),
+            timeout_secs: 5,
+            ..Default::default()
+        };
+        let err = validate_docker_endpoint(&endpoint).unwrap_err();
+        assert!(err.contains("only supported on Windows"));
     }
 
     #[test]

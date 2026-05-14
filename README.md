@@ -86,6 +86,12 @@ If the bootstrap fails, the agent should stop and surface the failure instead of
 
 ### Release Notes
 
+#### 1.0.2
+
+- Hardened cross-platform Docker endpoint validation, especially for Windows named pipe vs Unix socket handling
+- Expanded the container terminal UI with Windows shell presets and shell-specific command execution
+- Improved endpoint help text, font behavior, CI validation, and release packaging coverage across Linux, macOS, and Windows
+
 #### 1.0.1
 
 - Added a native file picker to the **Compose** screen for selecting `.yml` and `.yaml` files
@@ -136,7 +142,8 @@ sudo apt install -y \
   librsvg2-dev
 ```
 
-**macOS / Windows**: No additional system dependencies required.
+**macOS**: Xcode Command Line Tools are required for local builds.  
+**Windows**: Local MSI/NSIS bundling requires WiX Toolset and NSIS in addition to the standard Rust/Node toolchain.
 
 ---
 
@@ -216,16 +223,25 @@ The current Linux package requirements above include the extra dependencies disc
 
 ## GitHub Actions
 
-`.github/workflows/rust.yml` validates the project on pull requests to `main` and on pushes to `main`. It publishes Linux release assets when validation succeeds and either a pull request from `dev` into `main` is merged or `main` is updated by a push/fast-forward that leaves `main` at the same commit as `dev`.
+`.github/workflows/rust.yml` validates the project on pull requests to `main` and on pushes to `main` across Linux, macOS, and Windows runners. When validation succeeds and either a pull request from `dev` into `main` is merged or `main` is updated by a push/fast-forward that leaves `main` at the same commit as `dev`, it builds release bundles on Linux, macOS, and Windows and publishes them together to a single GitHub Release.
 
 Published GitHub Release assets:
 
 - `target/release/bundle/deb/*.deb`
 - `target/release/bundle/rpm/*.rpm`
 - `target/release/bundle/appimage/*.AppImage`
+- `target/release/bundle/dmg/*.dmg`
+- `target/release/bundle/msi/*.msi`
+- `target/release/bundle/nsis/*.exe`
 - `target/release/bundle/SHA512SUMS`
 
-Each release uses the merge commit from `dev -> main` and gets a unique tag in the form `v<version>-<short-sha>`.
+Each release uses the merge commit from `dev -> main` and gets a unique tag in the form `v<version>-<short-sha>`. The current release scope is:
+
+- Linux x86_64 bundles (`.deb`, `.rpm`, `.AppImage`)
+- macOS Intel and Apple Silicon DMG bundles
+- Windows x86_64 MSI and NSIS bundles
+
+The first multi-platform iteration publishes **unsigned** macOS and Windows installers. They are suitable as CI-generated artifacts, but production distribution may still require platform-specific signing and notarization.
 
 Users can validate the downloaded files with:
 
@@ -261,7 +277,7 @@ npx tsc --noEmit   # Type check only
 | Screen | Description |
 |---|---|
 | **Dashboard** | Connection status, Docker daemon info (version, OS, container/image counts, architecture), and a consolidated security summary with totals, scanned images, images with findings, and vulnerability counts by severity |
-| **Containers** | Sortable table with state badges. Select a container to access: **Logs** (tail N lines, since/until datetime filters, follow mode), **Terminal** (shell picker, root checkbox, interactive vs single-command), **Stats** (CPU%, memory, network RX/TX, block I/O, PIDs) |
+| **Containers** | Sortable table with state badges. Select a container to access: **Logs** (tail N lines, since/until datetime filters, follow mode), **Terminal** (shell picker with Unix and Windows shell presets, root checkbox, interactive vs single-command), **Stats** (CPU%, memory, network RX/TX, block I/O, PIDs) |
 | **Images** | Sortable table. Pull from registry with live progress stream. Remove with confirmation. |
 | **Security** | Scanner availability and selection, unified severity chart, per-image scan status, and a modal drill-down with stored findings ordered by severity |
 | **Volumes** | Sortable table. Create / remove. |
@@ -297,7 +313,7 @@ All text sizes use `rem` units — changing the root size scales everything prop
 
 ### Monospace Font
 
-The dropdown uses platform-specific font discovery: `fc-list` on Linux, `system_profiler SPFontsDataType` on macOS, and a curated monospace list on Windows. The selection applies to code blocks, logs, terminal output, and table data. Falls back to system monospace if none are available.
+The dropdown uses platform-specific font discovery: `fc-list` on Linux, `system_profiler SPFontsDataType` filtered with monospace heuristics on macOS, and a curated monospace fallback list on Windows. The selection applies to code blocks, logs, terminal output, and table data. Falls back to system monospace if none are available.
 
 ---
 
@@ -338,7 +354,7 @@ Persisted security reports are stored separately from `settings.json` under a `s
 
 ### Remote Docker via SSH tunnel
 
-Container Desktop supports direct `tcp://` endpoints for trusted local networks, but SSH tunneling remains the recommended option when you want stronger transport security. To use a Docker daemon from another machine on your LAN through SSH, expose the remote Docker socket on the **remote loopback** and tunnel it back to your machine.
+Container Desktop supports direct `tcp://` endpoints for trusted local networks, but SSH tunneling remains the recommended option when you want stronger transport security. The walkthrough below applies to a **remote Linux/macOS host** exposing a Unix socket. Windows hosts usually rely on Docker Desktop named pipes and should be exposed through a Windows-specific tunnel or a trusted TCP endpoint instead.
 
 1. Install `socat` on the remote machine:
 

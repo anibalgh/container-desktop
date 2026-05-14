@@ -44,9 +44,45 @@ pub async fn list_fonts() -> Result<Vec<String>, String> {
 ///
 /// - **Linux**: uses `fc-list` (fontconfig).
 /// - **macOS**: uses `system_profiler SPFontsDataType`.
-/// - **Windows**: returns a curated list of common monospace fonts
+/// - **Windows**: returns a curated fallback list of common monospace fonts
 ///   (DirectWrite enumeration would require winapi; CLI equivalents
 ///   are unreliable, so we ship a sensible default list).
+#[cfg(any(test, target_os = "macos", target_os = "windows"))]
+fn curated_monospace_fonts() -> Vec<String> {
+    vec![
+        "SF Mono".to_string(),
+        "Menlo".to_string(),
+        "Monaco".to_string(),
+        "Cascadia Code".to_string(),
+        "Cascadia Mono".to_string(),
+        "Consolas".to_string(),
+        "Courier New".to_string(),
+        "Fira Code".to_string(),
+        "Hack".to_string(),
+        "JetBrains Mono".to_string(),
+        "Lucida Console".to_string(),
+        "Monospace".to_string(),
+        "Source Code Pro".to_string(),
+    ]
+}
+
+#[cfg(any(test, target_os = "macos", target_os = "windows"))]
+fn looks_like_monospace_family(name: &str) -> bool {
+    let normalized = name.trim().to_ascii_lowercase();
+    [
+        "mono",
+        "code",
+        "console",
+        "courier",
+        "terminal",
+        "menlo",
+        "monaco",
+        "fixed",
+        "typewriter",
+    ]
+    .iter()
+    .any(|keyword| normalized.contains(keyword))
+}
 #[cfg(target_os = "linux")]
 fn list_fonts_platform() -> Result<Vec<String>, String> {
     let output = std::process::Command::new("fc-list")
@@ -85,13 +121,15 @@ fn list_fonts_platform() -> Result<Vec<String>, String> {
                 None
             }
         })
+        .filter(|font| looks_like_monospace_family(font))
         .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
         .collect();
     if fonts.is_empty() {
-        fonts.push("Menlo".to_string());
-        fonts.push("Monaco".to_string());
-        fonts.push("SF Mono".to_string());
+        fonts = curated_monospace_fonts()
+            .into_iter()
+            .filter(|font| looks_like_monospace_family(font))
+            .collect();
     }
     Ok(fonts)
 }
@@ -99,18 +137,35 @@ fn list_fonts_platform() -> Result<Vec<String>, String> {
 #[cfg(target_os = "windows")]
 fn list_fonts_platform() -> Result<Vec<String>, String> {
     // Windows has no reliable CLI for font enumeration without admin rights.
-    // DirectWrite enumeration requires winapi — for now, return a curated list
-    // of well-known monospace fonts available on most Windows installs.
-    Ok(vec![
-        "Cascadia Code".to_string(),
-        "Cascadia Mono".to_string(),
-        "Consolas".to_string(),
-        "Courier New".to_string(),
-        "Fira Code".to_string(),
-        "Hack".to_string(),
-        "JetBrains Mono".to_string(),
-        "Lucida Console".to_string(),
-        "Monospace".to_string(),
-        "Source Code Pro".to_string(),
-    ])
+    // DirectWrite enumeration would require additional native bindings, so for
+    // now we return a curated fallback list of common monospace fonts.
+    Ok(curated_monospace_fonts())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{curated_monospace_fonts, looks_like_monospace_family};
+
+    #[test]
+    fn curated_fonts_include_common_cross_platform_candidates() {
+        let fonts = curated_monospace_fonts();
+        assert!(fonts.iter().any(|font| font == "Consolas"));
+        assert!(fonts.iter().any(|font| font == "SF Mono"));
+        assert!(fonts.iter().any(|font| font == "JetBrains Mono"));
+    }
+
+    #[test]
+    fn monospace_name_heuristic_matches_expected_fonts() {
+        assert!(looks_like_monospace_family("JetBrains Mono"));
+        assert!(looks_like_monospace_family("SF Mono"));
+        assert!(looks_like_monospace_family("Lucida Console"));
+        assert!(looks_like_monospace_family("Courier New"));
+    }
+
+    #[test]
+    fn monospace_name_heuristic_rejects_common_proportional_fonts() {
+        assert!(!looks_like_monospace_family("Helvetica Neue"));
+        assert!(!looks_like_monospace_family("Arial"));
+        assert!(!looks_like_monospace_family("Times New Roman"));
+    }
 }
