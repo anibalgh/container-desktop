@@ -208,14 +208,22 @@ The current Linux package requirements above include the extra dependencies disc
 
 ## GitHub Actions
 
-`.github/workflows/rust.yml` validates the project on pull requests to `main`, and on every push to `main` it also builds the Linux release artifacts. In a branch flow where `dev` is merged into `main`, that merge creates the `push` event on `main`, which is what triggers bundle generation.
+`.github/workflows/rust.yml` validates the project on pull requests to `main` and on pushes to `main`. It publishes Linux release assets only when a pull request from `dev` into `main` is merged and the validation job succeeds.
 
-Uploaded workflow artifacts:
+Published GitHub Release assets:
 
-- `target/release/container-desktop-app`
 - `target/release/bundle/deb/*.deb`
 - `target/release/bundle/rpm/*.rpm`
 - `target/release/bundle/appimage/*.AppImage`
+- `target/release/bundle/SHA512SUMS`
+
+Each release uses the merge commit from `dev -> main` and gets a unique tag in the form `v<version>-<short-sha>`.
+
+Users can validate the downloaded files with:
+
+```bash
+sha512sum -c SHA512SUMS
+```
 
 ---
 

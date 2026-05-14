@@ -5,17 +5,23 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-    types: [ "opened", "synchronize", "reopened" ]
+    types: [ "opened", "synchronize", "reopened", "closed" ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   validate:
+    if: github.event_name == 'push' || github.event.action != 'closed' || (github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'dev')
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v5
+      if: github.event_name != 'pull_request' || github.event.action != 'closed'
+    - uses: actions/checkout@v5
+      if: github.event_name == 'pull_request' && github.event.action == 'closed'
+      with:
+        ref: ${{ github.event.pull_request.merge_commit_sha }}
     - uses: dtolnay/rust-toolchain@stable
     - uses: actions/setup-node@v5
       with:
@@ -45,13 +51,17 @@ jobs:
     - name: Build frontend
       run: npm run build --prefix frontend
 
-  linux-bundles:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  release-linux-bundles:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'dev'
     needs: validate
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - uses: actions/checkout@v5
+      with:
+        ref: ${{ github.event.pull_request.merge_commit_sha }}
     - uses: dtolnay/rust-toolchain@stable
     - uses: actions/setup-node@v5
       with:
@@ -78,13 +88,36 @@ jobs:
       run: cargo install tauri-cli --locked
     - name: Build Linux bundles
       run: cargo tauri build --bundles deb,rpm,appimage
-    - name: Upload Linux artifacts
-      uses: actions/upload-artifact@v4
+    - name: Prepare release metadata
+      id: release_meta
+      run: |
+        version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+        short_sha=$(git rev-parse --short HEAD)
+        tag="v${version}-${short_sha}"
+        title="Container Desktop v${version} (${short_sha})"
+        {
+          echo "version=$version"
+          echo "short_sha=$short_sha"
+          echo "tag=$tag"
+          echo "title=$title"
+        } >> "$GITHUB_OUTPUT"
+    - name: Generate SHA512 checksums
+      run: |
+        cd target/release/bundle
+        sha512sum \
+          deb/*.deb \
+          rpm/*.rpm \
+          appimage/*.AppImage > SHA512SUMS
+    - name: Publish GitHub release
+      uses: softprops/action-gh-release@v2
       with:
-        name: container-desktop-linux-bundles
-        if-no-files-found: error
-        path: |
-          target/release/container-desktop-app
+        tag_name: ${{ steps.release_meta.outputs.tag }}
+        name: ${{ steps.release_meta.outputs.title }}
+        target_commitish: ${{ github.event.pull_request.merge_commit_sha }}
+        generate_release_notes: true
+        fail_on_unmatched_files: true
+        files: |
           target/release/bundle/deb/*.deb
           target/release/bundle/rpm/*.rpm
           target/release/bundle/appimage/*.AppImage
+          target/release/bundle/SHA512SUMS
