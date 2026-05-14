@@ -1,3 +1,5 @@
+import { getVersion } from "@tauri-apps/api/app";
+import { useEffect, useState } from "react";
 import { useI18n } from "../i18n";
 
 interface StatusBarProps {
@@ -9,6 +11,30 @@ interface StatusBarProps {
 
 export function StatusBar({ title, dockerVersion, endpoint, connectionError }: StatusBarProps) {
   const { t } = useI18n();
+  const [appVersion, setAppVersion] = useState(__APP_VERSION__);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadVersion() {
+      try {
+        const version = await getVersion();
+        if (!cancelled) {
+          setAppVersion(version);
+        }
+      } catch {
+        if (!cancelled) {
+          setAppVersion(__APP_VERSION__);
+        }
+      }
+    }
+
+    void loadVersion();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <footer
@@ -31,7 +57,7 @@ export function StatusBar({ title, dockerVersion, endpoint, connectionError }: S
         {endpoint && (
           <span className="font-mono text-xs">{endpoint}</span>
         )}
-        <span>{t.statusBar.version}</span>
+        <span>{t.statusBar.version(appVersion)}</span>
       </div>
     </footer>
   );

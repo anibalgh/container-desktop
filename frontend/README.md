@@ -22,7 +22,7 @@ src/
 │   └── types.ts     # TypeScript interfaces mirroring domain entities
 ├── components/
 │   ├── Sidebar.tsx  # Navigation sidebar (7 primary screens + about link + connection indicator)
-│   └── StatusBar.tsx # Bottom bar (screen title, Docker version, endpoint)
+│   └── StatusBar.tsx # Bottom bar (screen title, Docker version, endpoint, app version)
 └── screens/
     ├── About.tsx      # Project summary, license, tech stack, vibe coding note
     ├── Dashboard.tsx   # Docker daemon info + stat cards
@@ -42,3 +42,5 @@ All IPC goes through `@tauri-apps/api`:
 - **Events**: `listen<T>("event-name", callback)` — streaming data (logs, pull progress, compose output)
 
 See `src/lib/tauri.ts` for the complete IPC bridge.
+
+The status bar resolves the displayed app version from Tauri at runtime and falls back to build-time frontend metadata, so the UI stays aligned with packaged releases.

@@ -57,6 +57,7 @@ If the bootstrap fails, the agent should stop and surface the failure instead of
 - **Font size presets**: Normal / Large / Larger (proportional scaling across all UI)
 - **Monospace font selector** — uses platform-specific font enumeration (`fc-list` on Linux, `system_profiler` on macOS, curated defaults on Windows)
 - Navigation sidebar with PNG icon (adapts to theme) and connection status indicator
+- Bottom status bar with active screen, Docker version, endpoint, and the app version resolved from runtime/build metadata
 - Minimal **Acerca de** link in the sidebar footer for project and licensing details
 - Modal dialogs for image pull and confirmation actions
 - Live streaming output for image pulls, container logs, compose, and terminal sessions

@@ -24,7 +24,7 @@ export interface Messages {
     disconnected: string;
   };
   statusBar: {
-    version: string;
+    version: (version: string) => string;
   };
   common: {
     save: string;
@@ -361,7 +361,7 @@ export const en: Messages = {
     disconnected: "Disconnected",
   },
   statusBar: {
-    version: "Container Desktop v0.1.0",
+    version: (version) => `Container Desktop v${version}`,
   },
   common: {
     save: "Save",
@@ -713,7 +713,7 @@ export const es: Messages = {
     disconnected: "Desconectado",
   },
   statusBar: {
-    version: "Container Desktop v0.1.0",
+    version: (version) => `Container Desktop v${version}`,
   },
   common: {
     save: "Guardar",
