@@ -110,6 +110,7 @@ Dependency direction: `domain ← infrastructure ← src-tauri`
 
 - **Node.js** 24 LTS and **npm**
 - **Rust** 1.88+ ([rustup.rs](https://rustup.rs))
+- **Tauri CLI** (`cargo install tauri-cli --locked`)
 - **Docker Engine** running locally (or a remote daemon)
 - **Docker Compose v2** via `docker compose` (required for Compose features)
 
@@ -123,7 +124,8 @@ sudo apt install -y \
   libsoup-3.0-dev \
   libjavascriptcoregtk-4.1-dev \
   libgtk-3-dev \
-  libayatana-appindicator3-dev
+  libayatana-appindicator3-dev \
+  librsvg2-dev
 ```
 
 **macOS / Windows**: No additional system dependencies required.
@@ -137,24 +139,83 @@ sudo apt install -y \
 ```bash
 cd frontend
 npm install
+cd ..
 ```
 
-### 2. Run in development mode
+### 2. Install the Tauri CLI
 
 ```bash
-cd ..           # back to project root
+cargo install tauri-cli --locked
+```
+
+### 3. Run in development mode
+
+```bash
 cargo tauri dev
 ```
 
 Starts the Vite dev server (hot-reload on port 5173) and opens the Tauri window.
 
-### 3. Build for production
+### 4. Build for production
 
 ```bash
 cargo tauri build
 ```
 
-Output: `src-tauri/target/release/bundle/`.
+Outputs:
+
+- Binary: `target/release/container-desktop-app`
+- Bundles: `target/release/bundle/`
+
+---
+
+## Packaging on Linux
+
+To generate the Linux binary plus the `.deb`, `.rpm`, and `.AppImage` packages in one pass:
+
+```bash
+sudo apt install -y \
+  pkg-config \
+  libglib2.0-dev \
+  libwebkit2gtk-4.1-dev \
+  libsoup-3.0-dev \
+  libjavascriptcoregtk-4.1-dev \
+  libgtk-3-dev \
+  libayatana-appindicator3-dev \
+  librsvg2-dev
+
+cd frontend && npm install && cd ..
+cargo install tauri-cli --locked
+cargo tauri build --bundles deb,rpm,appimage
+```
+
+Generated artifacts:
+
+- Binary: `target/release/container-desktop-app`
+- DEB: `target/release/bundle/deb/`
+- RPM: `target/release/bundle/rpm/`
+- AppImage: `target/release/bundle/appimage/`
+
+If you update the source icon under `assets/icons/dark/icon16x16.png`, regenerate the Tauri bundle icons before building:
+
+```bash
+cargo tauri icon assets/icons/dark/icon16x16.png
+```
+
+The current Linux package requirements above include the extra dependencies discovered during packaging: `libayatana-appindicator3-dev` for tray/AppIndicator support and `librsvg2-dev` for the AppImage `linuxdeploy` GTK plugin.
+
+---
+
+## GitHub Actions
+
+`.github/workflows/rust.yml` validates the project on pull requests to `main`, and on every push to `main` it also builds the Linux release artifacts. In a branch flow where `dev` is merged into `main`, that merge creates the `push` event on `main`, which is what triggers bundle generation.
+
+Uploaded workflow artifacts:
+
+- `target/release/container-desktop-app`
+- `target/release/bundle/deb/*.deb`
+- `target/release/bundle/rpm/*.rpm`
+- `target/release/bundle/appimage/*.AppImage`
 
 ---
 
