@@ -30,7 +30,7 @@ src/
     ├── Images.tsx      # Table + pull modal with live progress stream
     ├── Volumes.tsx     # Table + create modal
     ├── Networks.tsx    # Table + create modal with driver selector
-    ├── Compose.tsx     # File path input + up/down + live output viewer
+    ├── Compose.tsx     # File path input + native file picker + up/down + live output viewer
     └── Settings.tsx    # Theme picker, endpoint config, font settings
 ```
 

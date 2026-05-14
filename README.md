@@ -45,7 +45,7 @@ If the bootstrap fails, the agent should stop and surface the failure instead of
 | **Security** | Detect Grype / Trivy / Docker Scout, run background image scans, persist findings per image, and show consolidated vulnerability summaries without double-counting across tools |
 | **Volumes** | List, create, remove, inspect |
 | **Networks** | List, create (bridge/overlay/host/none), remove, inspect |
-| **Docker Compose** | Up, down, streaming log viewer |
+| **Docker Compose** | Up, down, native `.yml` / `.yaml` file picker, streaming log viewer |
 
 ### User Interface
 
@@ -83,6 +83,14 @@ If the bootstrap fails, the agent should stop and surface the failure instead of
 - Reuses stored reports across launches and automatically deletes and refreshes results older than 3 days
 - Prioritizes images that have never been scanned before refreshing stale reports
 - Uses unified deduplication so overview charts and dashboard counters do not double-count the same vulnerability reported by multiple tools
+
+### Release Notes
+
+#### 1.0.1
+
+- Added a native file picker to the **Compose** screen for selecting `.yml` and `.yaml` files
+- Selecting a Compose file now fills the path field immediately so the **Up** action becomes available without manual typing
+- Updated application metadata and packaging version from `1.0.0` to `1.0.1`
 
 ---
 

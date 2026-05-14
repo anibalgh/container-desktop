@@ -63,20 +63,26 @@ export function ComposeScreen() {
   }
 
   async function chooseComposeFile() {
-    const selected = await open({
-      multiple: false,
-      directory: false,
-      filters: [
-        {
-          name: "Compose",
-          extensions: ["yml", "yaml"],
-        },
-      ],
-    });
+    try {
+      const selected = await open({
+        multiple: false,
+        directory: false,
+        filters: [
+          {
+            name: "Compose",
+            extensions: ["yml", "yaml"],
+          },
+        ],
+      });
 
-    if (typeof selected === "string") {
-      setFilePath(selected);
-      setError(null);
+      if (typeof selected === "string") {
+        const normalizedPath = selected.trim();
+        if (!normalizedPath) return;
+        setFilePath(normalizedPath);
+        setError(null);
+      }
+    } catch (e) {
+      setError(String(e));
     }
   }
 

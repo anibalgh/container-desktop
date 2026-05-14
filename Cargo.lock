@@ -397,7 +397,7 @@ dependencies = [
 
 [[package]]
 name = "container-desktop-app"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "domain",
  "futures",
@@ -722,7 +722,7 @@ dependencies = [
 
 [[package]]
 name = "domain"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1671,7 +1671,7 @@ dependencies = [
 
 [[package]]
 name = "infrastructure"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "async-trait",
  "bollard",
