@@ -93,6 +93,8 @@ If the bootstrap fails, the agent should stop and surface the failure instead of
 - Improved endpoint help text, font behavior, CI validation, and release packaging coverage across Linux, macOS, and Windows
 - Fixed the CI bootstrap check on macOS by making `./scripts/load-project-context.sh --check` compatible with the Bash version shipped on GitHub runners
 - Fixed the Windows infrastructure build by preventing Unix-only Docker socket APIs from being compiled on the Windows target
+- Moved GitHub Actions jobs to explicit **Node 24 LTS** usage and updated artifact upload steps to a Node 24-compatible action release
+- Replaced the retired `macos-13` Intel release runner label with `macos-15-intel` so the macOS Intel bundle job can be scheduled again
 
 #### 1.0.1
 
@@ -226,6 +228,8 @@ The current Linux package requirements above include the extra dependencies disc
 ## GitHub Actions
 
 `.github/workflows/rust.yml` validates the project on pull requests to `main` and on pushes to `main` across Linux, macOS, and Windows runners. When validation succeeds and either a pull request from `dev` into `main` is merged or `main` is updated by a push/fast-forward that leaves `main` at the same commit as `dev`, it builds release bundles on Linux, macOS, and Windows and publishes them together to a single GitHub Release.
+
+The workflow installs **Node 24 LTS** in the frontend-enabled jobs and opts JavaScript-based GitHub Actions into the Node 24 runtime so release uploads stay ahead of the Node 20 deprecation on hosted runners. The Intel macOS release bundle now targets the supported `macos-15-intel` hosted runner label instead of the retired `macos-13` image.
 
 Published GitHub Release assets:
 
